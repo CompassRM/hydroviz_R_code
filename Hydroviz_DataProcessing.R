@@ -1,5 +1,10 @@
 ProcessHydrovizData <- function () {
-  setwd("~/Box/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/R Scripts")
+  # setwd("~/Box/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/R Scripts")
+  
+  # This will set the working path to the path of this file
+  this.dir <- dirname(parent.frame(2)$ofile)
+  setwd(this.dir)
+  
   rm(list=ls())
   cat("\014")
   while (dev.cur()>1) dev.off()
@@ -63,6 +68,11 @@ ProcessHydrovizData <- function () {
   ## READ and PROCESS DATA for each file in file_names
   df_LIST <- list()
   df_ALL <- data.frame()
+  
+  
+  ## Ask about saving to DB
+  res <- dlg_message("Would you like to push this data to the DB?", "yesno")$res
+
   
   for (i in 1:length(file_names)) {
     file_name <- file_names[i]
@@ -163,27 +173,33 @@ ProcessHydrovizData <- function () {
     
     df_ALL <- rbind(df_ALL, df_final)
     df_LIST[[i]] <- df_final  # For debugging purposes only - comment out or delete
+
+    
+    
+    end_time <- Sys.time()
+    elapsed_time <- difftime(end_time, processing_start, units="secs")
+    
+    # disp_message <- paste("Data processing complete. Elapsed time: ", round(elapsed_time[[1]],2), " seconds. ", length(file_names)," file(s) processed.")
+    # dlg_message(disp_message, gui = .GUI)
+    message(c("Finished processing ", i , " of ", length(file_names), " files. Elapsed time: ", round(elapsed_time[[1]],2), " seconds."))
+    
+    ## INSERT in DB
+    if (res == "yes") {
+      message("*** INSERTING INTO DB ***")
+      tables_list <- PushToPSQL(df_ALL)
+      # NOTE: tables_list$alternatives will access the alternatives dataframe
+    }
+    
   }
+
   
-  
-  # Processing complete - display message
+  ## PROCESSING COMPLETE - display message
   end_time <- Sys.time()
   elapsed_time <- difftime(end_time, processing_start, units="secs")
   
   # disp_message <- paste("Data processing complete. Elapsed time: ", round(elapsed_time[[1]],2), " seconds. ", length(file_names)," file(s) processed.")
   # dlg_message(disp_message, gui = .GUI)
   message(c("Data processing complete. Elapsed time: ", round(elapsed_time[[1]],2), " seconds. ", length(file_names)," file(s) processed."))
-  
-  
-  ## INSERT in DB
-  res <- dlg_message("Would you like to push this data to the DB?", "yesno")$res
-  
-  if (res == "yes") {
-    message("*** INSERTING INTO DB ***")
-    tables_list <- PushToPSQL(df_ALL)
-    # NOTE: tables_list$alternatives will access the alternatives dataframe
-  }
-  
   message("FINISHED!")
   
   # ## Create dataframes for each variable in df_final

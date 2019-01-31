@@ -326,6 +326,8 @@ PushToPSQL <- function(df) {
   ## Build DATA_BRIDGE table
   ## -----------------------
   
+  message("Starting DATA_BRIDGE")
+  
   bridge_table_temp <- df
   
   # Alternative ids
