@@ -525,12 +525,15 @@ PushToPSQL <- function(df) {
   num_dups <- num_df - num_insert
   
   # 3 - dbWriteTable to append the new values
-  if (num_insert>0) {
-    RPostgreSQL::dbWriteTable(connection, "stats", to_insert, row.names=FALSE, append = TRUE, overwrite = FALSE)
-    message(c(num_df, " STATS in df, ", num_dups, " duplicates, ", num_insert, " inserted in DB"))
-  } else {
-    message("Nothing to insert in STATS table")
-  }
+  # if (num_insert>0) {
+  #   RPostgreSQL::dbWriteTable(connection, "stats", to_insert, row.names=FALSE, append = TRUE, overwrite = FALSE)
+  #   message(c(num_df, " STATS in df, ", num_dups, " duplicates, ", num_insert, " inserted in DB"))
+  # } else {
+  #   message("Nothing to insert in STATS table")
+  # }
+  
+  RPostgreSQL::dbWriteTable(connection, "stats", to_insert, row.names=FALSE, append = TRUE, overwrite = FALSE)
+  message(c(num_df, " STATS in df, ", num_dups, " duplicates, ", num_insert, " inserted in DB"))
   
   # Get most recent versions of the DB TABLES
   DB_data_bridge <- dbReadTable(connection, "data_bridge")
