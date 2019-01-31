@@ -1,10 +1,12 @@
 ProcessHydrovizData <- function () {
   # setwd("~/Box/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/R Scripts")
   
-  # This will set the working path to the path of this file
-  this.dir <- dirname(parent.frame(2)$ofile)
-  setwd(this.dir)
+  setwd("~/Box/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code")
   
+  # # This will set the working path to the path of this file
+  # this.dir <- dirname(parent.frame(2)$ofile)
+  # setwd(this.dir)
+  # 
   rm(list=ls())
   cat("\014")
   while (dev.cur()>1) dev.off()
@@ -35,6 +37,12 @@ ProcessHydrovizData <- function () {
   # source("Hydroviz_WriteToCSV.R")
   source("Hydroviz_PushToPSQL.R")
   
+  
+  # Declare global variables
+
+  tables_list <- list()
+  rawData <- data.frame()
+  
   # Choose file and get path
   choices = c("One File", "All Files")
   
@@ -64,17 +72,19 @@ ProcessHydrovizData <- function () {
     sprintf("The selected FOLDER is: %s", file_path_no_filename)
   }
   
-  
-  ## READ and PROCESS DATA for each file in file_names
-  df_LIST <- list()
-  df_ALL <- data.frame()
-  
-  
   ## Ask about saving to DB
   res <- dlg_message("Would you like to push this data to the DB?", "yesno")$res
 
   
+  ## READ and PROCESS DATA for each file in file_names
+  
   for (i in 1:length(file_names)) {
+    # Declare/clear variables
+    df_LIST <- list()
+    df_ALL <- data.frame()
+    df_column <- data.frame()
+    
+    
     file_name <- file_names[i]
     file_path <- paste(file_path_no_filename, file_name, sep='/')
     
@@ -96,8 +106,7 @@ ProcessHydrovizData <- function () {
     message("Time: ", round(elapsed_time[[1]],2), " seconds")
   
     ## PROCESS DATA
-    # Create EMPTY dataframe
-    df_column <- data.frame()
+
     
     # How many rows of metadata?
     # *** Make this more robust ***
@@ -175,7 +184,6 @@ ProcessHydrovizData <- function () {
     df_LIST[[i]] <- df_final  # For debugging purposes only - comment out or delete
 
     
-    
     end_time <- Sys.time()
     elapsed_time <- difftime(end_time, processing_start, units="secs")
     
@@ -190,6 +198,13 @@ ProcessHydrovizData <- function () {
       # NOTE: tables_list$alternatives will access the alternatives dataframe
     }
     
+    tables_list$df_ALL <- df_ALL
+    tables_list$df_LIST <- df_LIST
+    tables_list$rawData <- rawData
+    tables_list$file_names <- file_names
+
+    # CURRENTLY, THIS CODE WITH KEEP ONLY THE DATA FROM THE LAST LOOP.  TOO BIG TO APPEND THE tables_lists.
+    # Change this so that it SAVES the tables to disk (prompt first)
   }
 
   
@@ -211,10 +226,9 @@ ProcessHydrovizData <- function () {
   #   # NOTE: tables_list$alternatives will access the alternatives dataframe
   # }
   
-  tables_list$df_ALL <- df_ALL
-  tables_list$df_LIST <- df_LIST
-  tables_list$rawData <- rawData
-  tables_list$file_names <- file_names
+  
+  return(tables_list)
+  
 }
 
 
