@@ -1,6 +1,4 @@
-##  CREATE SEPARATE TABLES FOR EACH VARIABLE
-
-PushToPSQL <- function(df) {
+PushToPSQL <- function(df, save_tables_flag) {
   if(!"RPostgreSQL" %in% rownames(installed.packages())) {
     install.packages("RPostgreSQL")
   }
@@ -398,6 +396,8 @@ PushToPSQL <- function(df) {
   ## Build DATA table
   ## -----------------------
   
+  message("Starting DATA_TABLE")
+  
   # bt <- LOCAL_data_bridge
   bridge_table_temp$code <- paste(bridge_table_temp$alternative_id, bridge_table_temp$type_id, bridge_table_temp$source_id, bridge_table_temp$river_id, bridge_table_temp$location_id)
   LOCAL_data <- dplyr::select(bridge_table_temp, id, date, value, code)
@@ -460,6 +460,8 @@ PushToPSQL <- function(df) {
   ## -----------------------
   ## CREATE STATS_TABLE
   ## -----------------------
+  
+  message("Starting STATS_TABLE")
   
   # LOCAL_data_TEMP <- dplyr::select(LOCAL_data, id, date, value, code)
   
@@ -549,16 +551,21 @@ PushToPSQL <- function(df) {
   DB_modeled_dates <- dbReadTable(connection, "modeled_dates")
   DB_year_dates <- dbReadTable(connection, "year_dates")
   
-  tables_list <- list("LOCAL_alternatives"=LOCAL_alternatives, " LOCAL_sources"= LOCAL_sources, 
-                      "LOCAL_types"= LOCAL_types, " LOCAL_rivers"= LOCAL_rivers, " LOCAL_locations"= LOCAL_locations, 
-                      "LOCAL_modeled_dates"= LOCAL_modeled_dates, " LOCAL_months"= LOCAL_months, 
-                      "LOCAL_year_dates"= LOCAL_year_dates, " LOCAL_data_bridge"= LOCAL_data_bridge, 
-                      "LOCAL_data"= LOCAL_data, " LOCAL_model_stats"= LOCAL_model_stats, 
+  
+  if(save_tables_flag=="yes") {
+    
+  message("*** Exporting tables to 'tables_list' for debugging ***")
+    
+  tables_list <- list("LOCAL_alternatives"=LOCAL_alternatives, " LOCAL_sources"= LOCAL_sources,
+                      "LOCAL_types"= LOCAL_types, " LOCAL_rivers"= LOCAL_rivers, " LOCAL_locations"= LOCAL_locations,
+                      "LOCAL_modeled_dates"= LOCAL_modeled_dates, " LOCAL_months"= LOCAL_months,
+                      "LOCAL_year_dates"= LOCAL_year_dates, " LOCAL_data_bridge"= LOCAL_data_bridge,
+                      "LOCAL_data"= LOCAL_data, " LOCAL_model_stats"= LOCAL_model_stats,
                       "LOCAL_model_stats_all"= LOCAL_model_stats_all,
-                      "DB_alternatives"=DB_alternatives, " DB_sources"= DB_sources, 
-                      "DB_types"= DB_types, " DB_rivers"= DB_rivers, " DB_locations"= DB_locations, 
-                      "DB_modeled_dates"= DB_modeled_dates, " DB_months"= DB_months, 
-                      "DB_year_dates"= DB_year_dates, " DB_data_bridge"= DB_data_bridge, 
+                      "DB_alternatives"=DB_alternatives, " DB_sources"= DB_sources,
+                      "DB_types"= DB_types, " DB_rivers"= DB_rivers, " DB_locations"= DB_locations,
+                      "DB_modeled_dates"= DB_modeled_dates, " DB_months"= DB_months,
+                      "DB_year_dates"= DB_year_dates, " DB_data_bridge"= DB_data_bridge,
                       "DB_data"= DB_data, " DB_stats"= DB_stats,
                       "ALTS_inserted" = ALTS_inserted,
                       "SOURCES_inserted" = SOURCES_inserted,
@@ -571,6 +578,9 @@ PushToPSQL <- function(df) {
                       "DATA_BRIDGE_inserted" = DATA_BRIDGE_inserted,
                       "DATA_inserted" = DATA_inserted,
                       "STATS_inserted" = STATS_inserted)
+  } else {
+    tables_list <- list()
+  }
   
   message("*** FINISHED ***")
   

@@ -7,10 +7,13 @@ ProcessHydrovizData <- function () {
   # this.dir <- dirname(parent.frame(2)$ofile)
   # setwd(this.dir)
   # 
+  
+  # CLEAR EVERYTHING AT THE START
   rm(list=ls())
   cat("\014")
   while (dev.cur()>1) dev.off()
   
+  # Check for packages - install if necessary
   if(!"openxlsx" %in% rownames(installed.packages())) {
     install.packages("openxlsx")
   }
@@ -27,11 +30,14 @@ ProcessHydrovizData <- function () {
     install.packages("gdata")
   }
   
+  # Load libraries
   library("lubridate")
   library("openxlsx")
   library("dplyr")
   library("svDialogs")
   library("gdata")
+  
+  # Source files / functions
   
   # source("Hydroviz_CreateRTables.R") 
   # source("Hydroviz_WriteToCSV.R")
@@ -43,6 +49,7 @@ ProcessHydrovizData <- function () {
   tables_list <- list()
   rawData <- data.frame()
   
+  
   # Choose file and get path
   choices = c("One File", "All Files")
   
@@ -50,6 +57,10 @@ ProcessHydrovizData <- function () {
   
   file_path <- dlgOpen(getwd(), "Please select a file", multiple = FALSE, filters = dlg_filters["All", ],
            gui = .GUI)$res
+  
+  insert_into_DB <- dlg_message("Would you like to push this data to the DB?", "yesno")$res
+  
+  save_tables <- dlg_message("Would you like to export the data tables in a list for debugging?", "yesno")$res
   
   processing_start <- Sys.time()
   
@@ -72,8 +83,6 @@ ProcessHydrovizData <- function () {
     sprintf("The selected FOLDER is: %s", file_path_no_filename)
   }
   
-  ## Ask about saving to DB
-  res <- dlg_message("Would you like to push this data to the DB?", "yesno")$res
 
   
   ## READ and PROCESS DATA for each file in file_names
@@ -192,16 +201,22 @@ ProcessHydrovizData <- function () {
     message(c("Finished processing ", i , " of ", length(file_names), " files. Elapsed time: ", round(elapsed_time[[1]],2), " seconds."))
     
     ## INSERT in DB
-    if (res == "yes") {
+    if (insert_into_DB == "yes") {
       message("*** INSERTING INTO DB ***")
-      tables_list <- PushToPSQL(df_ALL)
+      tables_list <- PushToPSQL(df_ALL, save_tables)
       # NOTE: tables_list$alternatives will access the alternatives dataframe
     }
     
-    tables_list$df_ALL <- df_ALL
-    tables_list$df_LIST <- df_LIST
-    tables_list$rawData <- rawData
-    tables_list$file_names <- file_names
+    # Add the data frames created in this R file to the tables_list for debugging purposes
+    # If tables_list is empty (length=0) when returning from PushToPSQL, that means the user
+    # indicated they did NOT want to export/save those tables. So don't add anything to the tables from here.
+    
+    if(length(tables_list) != 0) {
+      tables_list$df_ALL <- df_ALL
+      tables_list$df_LIST <- df_LIST
+      tables_list$rawData <- rawData
+      tables_list$file_names <- file_names
+    }
 
     # CURRENTLY, THIS CODE WITH KEEP ONLY THE DATA FROM THE LAST LOOP.  TOO BIG TO APPEND THE tables_lists.
     # Change this so that it SAVES the tables to disk (prompt first)
@@ -217,14 +232,6 @@ ProcessHydrovizData <- function () {
   message(c("Data processing complete. Elapsed time: ", round(elapsed_time[[1]],2), " seconds. ", length(file_names)," file(s) processed."))
   message("FINISHED!")
   
-  # ## Create dataframes for each variable in df_final
-  # res <- dlg_message("Would you like to create relational DB tables (dataframes)?", "yesno")$res
-  # 
-  # if (res == "yes") {
-  #   tables_list <- CreateRTables(df_final)
-  #   
-  #   # NOTE: tables_list$alternatives will access the alternatives dataframe
-  # }
   
   
   return(tables_list)
