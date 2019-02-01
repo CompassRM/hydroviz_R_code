@@ -38,21 +38,15 @@ ProcessHydrovizData <- function () {
   library("gdata")
   
   # Source files / functions
-  
-  # source("Hydroviz_CreateRTables.R") 
-  # source("Hydroviz_WriteToCSV.R")
   source("Hydroviz_PushToPSQL.R")
-  
+  # source("Hydroviz_WriteToCSV.R")
   
   # Declare global variables
-
   tables_list <- list()
   rawData <- data.frame()
   
   
   # Choose file and get path
-  choices = c("One File", "All Files")
-  
   process_all <- dlg_message("Would you like to process all of the files in this folder? Select YES to process ALL files in the folder. Select NO to process only the selected file.", "yesno")$res
   
   file_path <- dlgOpen(getwd(), "Please select a file", multiple = FALSE, filters = dlg_filters["All", ],
