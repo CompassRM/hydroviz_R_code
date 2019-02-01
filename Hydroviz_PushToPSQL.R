@@ -3,19 +3,31 @@ PushToPSQL <- function(df, save_tables_flag) {
     install.packages("RPostgreSQL")
   }
   
+  if(!"dotenv" %in% rownames(installed.packages())) {
+    install.packages("dotenv")
+  }
+ 
+  
+  
   library("RPostgreSQL")
+  library("dotenv")
 
+  
   # loads the PostgreSQL driver
   driver <- dbDriver("PostgreSQL")
   
+  
   # creates a connection to the postgres database
   # note that "connection" will be used later in each connection to the database
+  
+  load_dot_env(file = ".env") # Loads variables from .env into R environment
+  
   connection <- dbConnect(driver, 
-                          dbname = "hydroviz_test",
-                          host = "localhost",
-                          port = 5432,
-                          user = "postgres",
-                          password = "4Mu8m"
+                          dbname=Sys.getenv("dbname"),
+                          host=Sys.getenv("host"),
+                          port=Sys.getenv("port"),
+                          user=Sys.getenv("user"),
+                          password=Sys.getenv("password")
   )
     
   # # TEST
