@@ -5,7 +5,8 @@
 
 ProcessHydrovizData <- function () {
   
-  setwd("~/Box/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code")
+  # NOTE - must set the working directory to the directory where this R file is run from! E.g.:
+  # setwd("~/Box/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code")
   
   # Source files / functions
   source("Hydroviz_PushToPSQL.R")
@@ -250,7 +251,6 @@ ProcessHydrovizData <- function () {
     df_LIST[[i]] <-
       df_final  # For debugging purposes only - comment out or delete
     
-    
     end_time <- Sys.time()
     elapsed_time <-
       difftime(end_time, processing_start, units = "secs")
@@ -269,14 +269,21 @@ ProcessHydrovizData <- function () {
     
     ## INSERT in DB
     if (insert_into_DB == "yes") {
+      message("-------------------------")
       message("*** INSERTING INTO DB ***")
+      message("-------------------------")
+      
       tables_list <- PushToPSQL(df_ALL, save_tables)
-      # NOTE: tables_list$alternatives will access the alternatives dataframe
+
+      message(c("Finished processing '", file_name, "'. " ,i, "/", length(file_names), " files processed"))
+                
     }
     
     # Add the data frames created in this R file to the tables_list for debugging purposes
     # If tables_list is empty (length=0) when returning from PushToPSQL, that means the user
     # indicated they did NOT want to export/save those tables. So don't add anything to the tables from here.
+    
+    # NOTE: tables_list$alternatives will access the alternatives dataframe
     
     if (length(tables_list) != 0) {
       tables_list$df_ALL <- df_ALL
@@ -303,7 +310,12 @@ ProcessHydrovizData <- function () {
       " file(s) processed."
     )
   )
-  message("FINISHED!")
+  
+  
+
+  message("----------------")
+  message("*** FINISHED ***")
+  message("----------------")
   
   return(tables_list)
   
