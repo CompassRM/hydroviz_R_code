@@ -1,3 +1,6 @@
+# Run this following line if testing code without calling the PushToPSQL function
+# df <- df_ALL
+
 PushToPSQL <- function(df, save_tables_flag) {
   if(!"RPostgreSQL" %in% rownames(installed.packages())) {
     install.packages("RPostgreSQL")
@@ -30,16 +33,6 @@ PushToPSQL <- function(df, save_tables_flag) {
                           password=Sys.getenv("password")
   )
     
-  # # TEST
-  # test_alts <- data.frame(dplyr::distinct(df, alternative))
-  # test_alts <- cbind(id=rownames(test_alts), test_alts)
-  # test_alts$alternative <- as.character(test_alts$alternative)
-  # test_alts$id <- as.integer(test_alts$id)
-  # 
-  # test_alts[1,2] <- "TEST1"
-  # test_alts[3,] <- c(3, "TEST3")
-  # test_alts[4,] <- c(4, "TESTING")
-
 
 # ====================================
   

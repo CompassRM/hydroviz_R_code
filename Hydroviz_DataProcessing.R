@@ -1,12 +1,14 @@
+# TO RUN - copy/paste the following into the command line (without commenting):
+# source("Hydroviz_DataProcessing.R")
+# ProcessHydrovizData()
+
 ProcessHydrovizData <- function () {
-  # setwd("~/Box/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/R Scripts")
-  
+
   setwd("~/Box/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code")
   
   # # This will set the working path to the path of this file
   # this.dir <- dirname(parent.frame(2)$ofile)
   # setwd(this.dir)
-  # 
   
   # CLEAR EVERYTHING AT THE START
   rm(list=ls())
