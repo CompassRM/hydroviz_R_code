@@ -190,6 +190,60 @@ PushToPSQL <- function(df, save_tables_flag) {
   message(c(num_df, " LOCATIONS in df, ", num_dups, " duplicates, ", num_insert, " inserted in DB"))
   
   
+  
+  ## -----------------------  
+  ## Build MONTHS table
+  ## -----------------------
+  
+  distinctDates <- data.frame(dplyr::distinct(df, date))
+  LOCAL_months <- data.frame(month_name=unique(months(distinctDates$date)))
+  
+  # 1 - query the table to see which values exist in the DB compared to my dataframe
+  DB_months <- dbReadTable(connection, "months")
+  
+  # 2 - remove existing values from the dataframe
+  db_matches <- match(as.character(LOCAL_months$month_name), DB_months$month_name)
+  num_df <- length(LOCAL_months$month_name)
+  
+  to_insert <- filter(LOCAL_months, is.na(db_matches))
+  # to_insert$date <- as.character(to_insert$date) # Change date to character to put in DB
+  MONTHS_inserted <- to_insert
+  num_insert <- length(to_insert[[1]])
+  num_dups <- num_df - num_insert
+  
+  # 3 - dbWriteTable to append the new values
+  # if (num_insert>0) {
+  #   RPostgreSQL::dbWriteTable(connection, "month", to_insert, row.names=FALSE, append = TRUE, overwrite = FALSE)
+  #   message(c(num_df, " MONTHs in df, ", num_dups, " duplicates, ", num_insert, " inserted in DB"))
+  # } else {
+  #   message("Nothing to insert in MONTHS table")
+  # }
+
+  # RPostgreSQL::dbWriteTable(connection, "months", to_insert, row.names=FALSE, append = TRUE, overwrite = FALSE)
+  # message(c(num_df, " MONTHs in df, ", num_dups, " duplicates, ", num_insert, " inserted in DB"))
+  
+  result = tryCatch({
+    RPostgreSQL::dbWriteTable(
+      connection,
+      "months",
+      to_insert,
+      row.names = FALSE,
+      append = TRUE,
+      overwrite = FALSE
+    )
+    message(c(
+      num_df,
+      " MONTHs in df, ",
+      num_dups,
+      " duplicates, ",
+      num_insert,
+      " inserted in DB"
+    ))
+  }, error = function(e) {
+    message ("ERROR in months table insertion:")
+    message (e)
+  })
+  
   ## -----------------------  
   ## Build MODELED_DATES table
   ## -----------------------
@@ -224,40 +278,32 @@ PushToPSQL <- function(df, save_tables_flag) {
   #   message("Nothing to insert in MODELED_DATES table")
   # }
 
-  RPostgreSQL::dbWriteTable(connection, "modeled_dates", to_insert, row.names=FALSE, append = TRUE, overwrite = FALSE)
-  message(c(num_df, " MODELED_DATES in df, ", num_dups, " duplicates, ", num_insert, " inserted in DB"))
+  # RPostgreSQL::dbWriteTable(connection, "modeled_dates", to_insert, row.names=FALSE, append = TRUE, overwrite = FALSE)
+  # message(c(num_df, " MODELED_DATES in df, ", num_dups, " duplicates, ", num_insert, " inserted in DB"))
 
-  
-  ## -----------------------  
-  ## Build MONTHS table
-  ## -----------------------
-  
-  temp <- data.frame(dplyr::distinct(LOCAL_modeled_dates, date))
-  LOCAL_months <- data.frame(month_name=unique(months(temp$date)))
-
-  # 1 - query the table to see which values exist in the DB compared to my dataframe
-  DB_months <- dbReadTable(connection, "months")
-  
-  # 2 - remove existing values from the dataframe
-  db_matches <- match(as.character(LOCAL_months$month_name), DB_months$month_name)
-  num_df <- length(LOCAL_months$month_name)
-  
-  to_insert <- filter(LOCAL_months, is.na(db_matches))
-  # to_insert$date <- as.character(to_insert$date) # Change date to character to put in DB
-  MONTHS_inserted <- to_insert
-  num_insert <- length(to_insert[[1]])
-  num_dups <- num_df - num_insert
-  
-  # 3 - dbWriteTable to append the new values
-  # if (num_insert>0) {
-  #   RPostgreSQL::dbWriteTable(connection, "month", to_insert, row.names=FALSE, append = TRUE, overwrite = FALSE)
-  #   message(c(num_df, " MONTHs in df, ", num_dups, " duplicates, ", num_insert, " inserted in DB"))
-  # } else {
-  #   message("Nothing to insert in MONTHS table")
-  # }
-  # 
-  RPostgreSQL::dbWriteTable(connection, "months", to_insert, row.names=FALSE, append = TRUE, overwrite = FALSE)
-  message(c(num_df, " MONTHs in df, ", num_dups, " duplicates, ", num_insert, " inserted in DB"))
+  result = tryCatch({
+    RPostgreSQL::dbWriteTable(
+      connection,
+      "modeled_dates",
+      to_insert,
+      row.names = FALSE,
+      append = TRUE,
+      overwrite = FALSE
+    )
+    message(
+      c(
+        num_df,
+        " MODELED_DATES in df, ",
+        num_dups,
+        " duplicates, ",
+        num_insert,
+        " inserted in DB"
+      )
+    )
+  }, error = function(e) {
+    message ("ERROR in modeled_dates table insertion:")
+    message (e)
+  })
   
   ## -----------------------
   ## Build YEAR_DATES table
@@ -542,47 +588,62 @@ PushToPSQL <- function(df, save_tables_flag) {
   RPostgreSQL::dbWriteTable(connection, "stats", to_insert, row.names=FALSE, append = TRUE, overwrite = FALSE)
   message(c(num_df, " STATS in df, ", num_dups, " duplicates, ", num_insert, " inserted in DB"))
   
-  # Get most recent versions of the DB TABLES
-  DB_data_bridge <- dbReadTable(connection, "data_bridge")
-  DB_data <- dbReadTable(connection, "data")
-  DB_stats <- dbReadTable(connection, "stats")
-  
-  # --- These might be redundant
-  DB_alternatives <- dbReadTable(connection, "alternatives")
-  DB_locations <- dbReadTable(connection, "locations")
-  DB_rivers <- dbReadTable(connection, "rivers")
-  DB_sources <- dbReadTable(connection, "sources")
-  DB_types <- dbReadTable(connection, "types")
-  DB_modeled_dates <- dbReadTable(connection, "modeled_dates")
-  DB_year_dates <- dbReadTable(connection, "year_dates")
-  
+
   
   if(save_tables_flag=="yes") {
+    message("*** Exporting tables to 'tables_list' for debugging ***")
     
-  message("*** Exporting tables to 'tables_list' for debugging ***")
+    # Get most recent versions of the DB TABLES
+    DB_data_bridge <- dbReadTable(connection, "data_bridge")
+    DB_data <- dbReadTable(connection, "data")
+    DB_stats <- dbReadTable(connection, "stats")
     
-  tables_list <- list("LOCAL_alternatives"=LOCAL_alternatives, " LOCAL_sources"= LOCAL_sources,
-                      "LOCAL_types"= LOCAL_types, " LOCAL_rivers"= LOCAL_rivers, " LOCAL_locations"= LOCAL_locations,
-                      "LOCAL_modeled_dates"= LOCAL_modeled_dates, " LOCAL_months"= LOCAL_months,
-                      "LOCAL_year_dates"= LOCAL_year_dates, " LOCAL_data_bridge"= LOCAL_data_bridge,
-                      "LOCAL_data"= LOCAL_data, " LOCAL_model_stats"= LOCAL_model_stats,
-                      "LOCAL_model_stats_all"= LOCAL_model_stats_all,
-                      "DB_alternatives"=DB_alternatives, " DB_sources"= DB_sources,
-                      "DB_types"= DB_types, " DB_rivers"= DB_rivers, " DB_locations"= DB_locations,
-                      "DB_modeled_dates"= DB_modeled_dates, " DB_months"= DB_months,
-                      "DB_year_dates"= DB_year_dates, " DB_data_bridge"= DB_data_bridge,
-                      "DB_data"= DB_data, " DB_stats"= DB_stats,
-                      "ALTS_inserted" = ALTS_inserted,
-                      "SOURCES_inserted" = SOURCES_inserted,
-                      "TYPES_inserted" = TYPES_inserted,
-                      "RIVERS_inserted" = RIVERS_inserted,
-                      "LOCATIONS_inserted" = LOCATIONS_inserted,
-                      "MODLED_DATES_inserted" = MODLED_DATES_inserted,
-                      "MONTHS_inserted" = MONTHS_inserted,
-                      "YEAR_DATES_inserted" = YEAR_DATES_inserted,
-                      "DATA_BRIDGE_inserted" = DATA_BRIDGE_inserted,
-                      "DATA_inserted" = DATA_inserted,
-                      "STATS_inserted" = STATS_inserted)
+    # --- These might be redundant
+    DB_alternatives <- dbReadTable(connection, "alternatives")
+    DB_locations <- dbReadTable(connection, "locations")
+    DB_rivers <- dbReadTable(connection, "rivers")
+    DB_sources <- dbReadTable(connection, "sources")
+    DB_types <- dbReadTable(connection, "types")
+    DB_modeled_dates <- dbReadTable(connection, "modeled_dates")
+    DB_year_dates <- dbReadTable(connection, "year_dates")
+    
+    tables_list <-
+      list(
+        "LOCAL_alternatives" = LOCAL_alternatives,
+        " LOCAL_sources" = LOCAL_sources,
+        "LOCAL_types" = LOCAL_types,
+        " LOCAL_rivers" = LOCAL_rivers,
+        " LOCAL_locations" = LOCAL_locations,
+        "LOCAL_modeled_dates" = LOCAL_modeled_dates,
+        " LOCAL_months" = LOCAL_months,
+        "LOCAL_year_dates" = LOCAL_year_dates,
+        " LOCAL_data_bridge" = LOCAL_data_bridge,
+        "LOCAL_data" = LOCAL_data,
+        " LOCAL_model_stats" = LOCAL_model_stats,
+        "LOCAL_model_stats_all" = LOCAL_model_stats_all,
+        "DB_alternatives" = DB_alternatives,
+        " DB_sources" = DB_sources,
+        "DB_types" = DB_types,
+        " DB_rivers" = DB_rivers,
+        " DB_locations" = DB_locations,
+        "DB_modeled_dates" = DB_modeled_dates,
+        " DB_months" = DB_months,
+        "DB_year_dates" = DB_year_dates,
+        " DB_data_bridge" = DB_data_bridge,
+        "DB_data" = DB_data,
+        " DB_stats" = DB_stats,
+        "ALTS_inserted" = ALTS_inserted,
+        "SOURCES_inserted" = SOURCES_inserted,
+        "TYPES_inserted" = TYPES_inserted,
+        "RIVERS_inserted" = RIVERS_inserted,
+        "LOCATIONS_inserted" = LOCATIONS_inserted,
+        "MODLED_DATES_inserted" = MODLED_DATES_inserted,
+        "MONTHS_inserted" = MONTHS_inserted,
+        "YEAR_DATES_inserted" = YEAR_DATES_inserted,
+        "DATA_BRIDGE_inserted" = DATA_BRIDGE_inserted,
+        "DATA_inserted" = DATA_inserted,
+        "STATS_inserted" = STATS_inserted
+      )
   } else {
     tables_list <- list()
   }

@@ -1,4 +1,5 @@
 # TO RUN - copy/paste the following into the command line (without commenting):
+# setwd("~/Box/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code")
 # source("Hydroviz_DataProcessing.R")
 # ProcessHydrovizData()
 
