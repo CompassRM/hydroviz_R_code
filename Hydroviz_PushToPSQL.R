@@ -879,7 +879,7 @@ PushToPSQL <- function(df, save_tables_flag) {
   message("Starting STATS_TABLE")
   
   stats_data_temp <-
-    tidyr::spread(LOCAL_data[, c("data_bridge_id", "year_dates_id", "year", "value")], year, value)
+    tidyr::spread(LOCAL_data_to_insert_NO_ID[, c("data_bridge_id", "year_dates_id", "year", "value")], year, value)
   stats_data_temp <-
     cbind(id = 1:nrow(stats_data_temp), stats_data_temp)
   
@@ -941,16 +941,18 @@ PushToPSQL <- function(df, save_tables_flag) {
   
   # INSERT UNIQUE stats values into DB
   # 1 - query the table to see which values exist in the DB compared to my dataframe
-  DB_stats <- dbReadTable(connection, "stats")
+  # DB_stats <- dbReadTable(connection, "stats")
   
   # 2 - remove existing values from the dataframe
-  db_matches <-
-    match(as.character(LOCAL_model_stats$data_bridge_id),
-          DB_stats$data_bridge_id)
+  # db_matches <-
+  #   match(as.character(LOCAL_model_stats$data_bridge_id),
+  #         DB_stats$data_bridge_id)
+  
+  
   num_df <- length(LOCAL_model_stats$id)
   
   # MUST remove the ID column before pushing to the DB
-  L_stats_NOid <-
+  LOCAL_model_stats_NO_ID <-
     dplyr::select(
       LOCAL_model_stats,
       data_bridge_id,
@@ -962,10 +964,13 @@ PushToPSQL <- function(df, save_tables_flag) {
       ninetieth,
       maximum
     )
+  # 
+  # to_insert <- filter(L_stats_NOid, is.na(db_matches))
   
-  to_insert <- filter(L_stats_NOid, is.na(db_matches))
-  STATS_inserted <- to_insert
-  num_insert <- length(to_insert[[1]])
+  # STATS_inserted <- to_insert
+  STATS_inserted <- LOCAL_model_stats_NO_ID
+  
+  num_insert <- length(LOCAL_model_stats_NO_ID[[1]])
   num_dups <- num_df - num_insert
   
   # 3 - dbWriteTable to append the new values
@@ -983,7 +988,7 @@ PushToPSQL <- function(df, save_tables_flag) {
     RPostgreSQL::dbWriteTable(
       connection,
       "stats",
-      to_insert,
+      LOCAL_model_stats_NO_ID,
       row.names = FALSE,
       append = TRUE,
       overwrite = FALSE
