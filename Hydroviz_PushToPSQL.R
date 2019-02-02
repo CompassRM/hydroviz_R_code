@@ -77,6 +77,12 @@ PushToPSQL <- function(df, save_tables_flag) {
         " inserted in DB"
       )
     )
+    
+    # ***********************
+    DB_alternatives_after <- dbReadTable(connection, "alternatives")
+    # ***********************
+    
+    
   } else {
     message(
       c(
@@ -485,8 +491,13 @@ PushToPSQL <- function(df, save_tables_flag) {
     )
   }
   
+
+  
   ## -----------------------
-  ## UPDATE LOCAL COPY OF TABLES (since they may have been updated above)
+  ## Build DATA_BRIDGE table
+  ## -----------------------
+  
+  # UPDATE LOCAL COPY OF TABLES (since they may have been updated above)
   DB_alternatives <- dbReadTable(connection, "alternatives")
   DB_locations <- dbReadTable(connection, "locations")
   DB_rivers <- dbReadTable(connection, "rivers")
@@ -494,10 +505,6 @@ PushToPSQL <- function(df, save_tables_flag) {
   DB_types <- dbReadTable(connection, "types")
   DB_modeled_dates <- dbReadTable(connection, "modeled_dates")
   DB_year_dates <- dbReadTable(connection, "year_dates")
-  
-  ## -----------------------
-  ## Build DATA_BRIDGE table
-  ## -----------------------
   
   message("Starting DATA_BRIDGE")
   
@@ -613,9 +620,9 @@ PushToPSQL <- function(df, save_tables_flag) {
                   location_id,
                   code)
   
-  to_insert <- filter(L_data_bridge_NOid, is.na(db_matches))
-  DATA_BRIDGE_inserted <- to_insert
-  num_insert <- length(to_insert[[1]])
+  data_to_insert <- filter(L_data_bridge_NOid, is.na(db_matches))
+  DATA_BRIDGE_inserted <- data_to_insert
+  num_insert <- length(data_to_insert[[1]])
   num_dups <- num_df - num_insert
   
   # 3 - dbWriteTable to append the new values
@@ -624,7 +631,7 @@ PushToPSQL <- function(df, save_tables_flag) {
     RPostgreSQL::dbWriteTable(
       connection,
       "data_bridge",
-      to_insert,
+      data_to_insert,
       row.names = FALSE,
       append = TRUE,
       overwrite = FALSE
@@ -657,9 +664,17 @@ PushToPSQL <- function(df, save_tables_flag) {
   ## Build DATA table
   ## -----------------------
   
+  # NOTE: The data_to_insert dataframe has the codes for the data to be inserted in both
+  # The 'data' table and the 'stats' table.  Don't need to do a compare by pulling
+  # the data and stats table from the DB. Just push any LOCAL_data and LOCAL_stats that have a code
+  # that is in data_to_insert.
+  
   message("Starting DATA_TABLE")
   
-  # bt <- LOCAL_data_bridge
+  codes_to_insert <- data_to_insert$code
+  
+  # Make a LOCAL version of the data with a 'code' field
+  
   bridge_table_temp$code <-
     paste(
       bridge_table_temp$alternative_id,
@@ -668,10 +683,13 @@ PushToPSQL <- function(df, save_tables_flag) {
       bridge_table_temp$river_id,
       bridge_table_temp$location_id
     )
+  
   LOCAL_data <-
     dplyr::select(bridge_table_temp, id, date, value, code)
   
+  
   # query the table to see which values exist in the DB compared to my dataframe
+  # This gives us the 'data_bridge_ids' that correspond to the 'codes'
   DB_data_bridge <- dbReadTable(connection, "data_bridge")
   
   # MUST do the step below to get the row index for matches, THEN get the corresponding ID for those rows
@@ -682,79 +700,143 @@ PushToPSQL <- function(df, save_tables_flag) {
       nomatch = NA_integer_,
       incomparables = NULL
     )
-  LOCAL_data$code <- DB_data_bridge$id[data_bridge_index]
-  LOCAL_data <- dplyr::rename(LOCAL_data, data_bridge_id = code)
   
-  # Add year, month, day to data table
-  LOCAL_data$year <- lubridate::year(LOCAL_data$date)
-  LOCAL_data$month_num <- lubridate::month(LOCAL_data$date)
-  LOCAL_data$day_num <- lubridate::day(LOCAL_data$date)
+  # Find the data_bridge_id where LOCAL_data already exists in the DB
+  LOCAL_data$data_bridge_id <- DB_data_bridge$id[data_bridge_index]
+  # LOCAL_data <- dplyr::rename(LOCAL_data, data_bridge_id = code)
   
-  LOCAL_data$year_dates_id <-
-    DB_year_dates[DB_year_dates$month == LOCAL_data$month &&
-                    DB_year_dates$day == LOCAL_data$day, "id"]
+  # Count how many rows in the local dataset BEFORE removing rows that exist in the DB
+  num_df <- length(LOCAL_data$id)
+      
+      # # This provides the index in DB_data where each row of LOCAL_data is located
+      # # If the row of LOCAL_data is NOT in DB_data, it is NULL
+      # # Check for NULLs and insert only the rows from LOCAL_data that correspond to the NULLS
+      # # These are NOT in the DB and should be inserted
+      # 
+      # db_matches <-
+      #   match(as.character(LOCAL_data$data_bridge_id),
+      #         DB_data$data_bridge_id)
   
-  modeled_dates_index <-
-    match(
-      as.character(LOCAL_data$date),
-      DB_modeled_dates$date,
-      nomatch = NA_integer_,
-      incomparables = NULL
-    )
-  LOCAL_data$date <- DB_modeled_dates$id[modeled_dates_index]
-  LOCAL_data <- dplyr::rename(LOCAL_data, modeled_dates_id = date)
-  
-  # Reorder columns
-  LOCAL_data <-
-    LOCAL_data[c(
-      "id",
-      "data_bridge_id",
-      "modeled_dates_id",
-      "value",
-      "year_dates_id",
-      "year",
-      "month_num",
-      "day_num"
-    )]
+  # Create a subset of LOCAL_data that is only rows that are in the 'codes_to_insert' list
+  # db_matches <-
+  #   match(as.character(LOCAL_data$code),
+  #         codes_to_insert)
 
-  # Convert values to numeric
-  options(digits = 9)
-  LOCAL_data$value <- as.numeric(LOCAL_data$value)
+  
+  LOCAL_data_to_insert <- dplyr::filter(LOCAL_data, LOCAL_data$code %in% codes_to_insert)
+  
+  DATA_inserted <- LOCAL_data_to_insert
+
+  num_insert <- length(LOCAL_data_to_insert[[1]])
+  num_dups <- num_df - num_insert
+  
+  
+  
+  if (length(LOCAL_data_to_insert[, 1]) > 0) {
+    # Only process LOCAL_data_to_insert if there are more than one rows
+    
+    # Process data to add missing columns before inserting into DB
+    # Add year, month, day to data table
+    LOCAL_data_to_insert$year <-
+      lubridate::year(LOCAL_data_to_insert$date)
+    LOCAL_data_to_insert$month_num <-
+      lubridate::month(LOCAL_data_to_insert$date)
+    LOCAL_data_to_insert$day_num <-
+      lubridate::day(LOCAL_data_to_insert$date)
+    
+    # CHECK THIS - LOOKS LIKE IT RETURNS 365 VALUES?!
+    LOCAL_data_to_insert$year_dates_id <-
+      DB_year_dates[DB_year_dates$month == LOCAL_data_to_insert$month &&
+                      DB_year_dates$day == LOCAL_data_to_insert$day, "id"]
+    
+    modeled_dates_index <-
+      match(
+        as.character(LOCAL_data_to_insert$date),
+        DB_modeled_dates$date,
+        nomatch = NA_integer_,
+        incomparables = NULL
+      )
+    
+    LOCAL_data_to_insert$date <-
+      DB_modeled_dates$id[modeled_dates_index]
+    LOCAL_data_to_insert <-
+      dplyr::rename(LOCAL_data_to_insert, modeled_dates_id = date)
+    
+    # Reorder columns
+    LOCAL_data_to_insert <-
+      LOCAL_data_to_insert[c(
+        "id",
+        "data_bridge_id",
+        "modeled_dates_id",
+        "value",
+        "year_dates_id",
+        "year",
+        "month_num",
+        "day_num"
+      )]
+    
+    # Convert values to numeric
+    options(digits = 9)
+    LOCAL_data_to_insert$value <-
+      as.numeric(LOCAL_data_to_insert$value)
+  
+    
+  }
   
   # INSERT UNIQUE data values into DB
   # 1 - query the table to see which values exist in the DB compared to my dataframe
-  DB_data <- dbReadTable(connection, "data")
+  # DB_data <- dbReadTable(connection, "data")
+  
   
   # 2 - remove existing values from the dataframe
-  db_matches <-
-    match(as.character(LOCAL_data$data_bridge_id),
-          DB_data$data_bridge_id)
-  num_df <- length(LOCAL_data$id)
+  # db_matches <-
+  #   match(as.character(LOCAL_data$data_bridge_id),
+  #         DB_data$data_bridge_id)
+  # 
+
+
   
-  L_data_NOid <-
-    dplyr::select(
-      LOCAL_data,
-      data_bridge_id,
-      modeled_dates_id,
-      value,
-      year_dates_id,
-      year,
-      month_num,
-      day_num
-    )
-  
-  to_insert <- filter(L_data_NOid, is.na(db_matches))
-  DATA_inserted <- to_insert
-  num_insert <- length(to_insert[[1]])
-  num_dups <- num_df - num_insert
+  # # Identify matches between LOCAL_data and the data already in the DB (using DB_data_bridge)
+  # db_matches <-
+  #   match(as.character(LOCAL_data$data_bridge_id),
+  #         DB_data$data_bridge_id)
+  # 
+  # 
+  # to_insert <- filter(L_data_NOid, is.na(db_matches))
+  # DATA_inserted <- to_insert
+  # num_insert <- length(to_insert[[1]])
+  # num_dups <- num_df - num_insert
   
   # 3 - dbWriteTable to append the new values
 
   if (num_insert > 0) {
-    RPostgreSQL::dbWriteTable(
+    # Drop the ID column
+    LOCAL_data_to_insert_NO_ID <-
+      dplyr::select(
+        LOCAL_data_to_insert,
+        data_bridge_id,
+        modeled_dates_id,
+        value,
+        year_dates_id,
+        year,
+        month_num,
+        day_num
+      )
+    
+    
+    message(
+      c(
+        "Inserting into 'DATA' table..."
+      )
+    )
+    
+    SQL_start <- Sys.time()
+    
+    # Write to DB
+     RPostgreSQL::dbWriteTable(
       connection,
       "data",
-      to_insert,
+      LOCAL_data_to_insert_NO_ID,
       row.names = FALSE,
       append = TRUE,
       overwrite = FALSE
@@ -767,6 +849,18 @@ PushToPSQL <- function(df, save_tables_flag) {
       num_insert,
       " inserted in DB"
     ))
+    
+    end_time <- Sys.time()
+    elapsed_time <- difftime(end_time, SQL_start, units = "secs")
+    
+    message(
+      c(
+        "SQL insert into 'DATA' complete. Elapsed time: ",
+        round(elapsed_time[[1]], 2),
+        " seconds. "
+      )
+    )
+    
   } else {
     message(c(
       num_df,
@@ -877,6 +971,15 @@ PushToPSQL <- function(df, save_tables_flag) {
   # 3 - dbWriteTable to append the new values
 
   if (num_insert > 0) {
+    
+    message(
+      c(
+        "Inserting into 'STATS' table..."
+      )
+    )
+    
+    SQL_start <- Sys.time()
+    
     RPostgreSQL::dbWriteTable(
       connection,
       "stats",
@@ -885,6 +988,7 @@ PushToPSQL <- function(df, save_tables_flag) {
       append = TRUE,
       overwrite = FALSE
     )
+    
     message(c(
       num_df,
       " STATS in df, ",
@@ -893,6 +997,18 @@ PushToPSQL <- function(df, save_tables_flag) {
       num_insert,
       " inserted in DB"
     ))
+    
+    end_time <- Sys.time()
+    elapsed_time <- difftime(end_time, SQL_start, units = "secs")
+    
+    message(
+      c(
+        "SQL insert into 'STATS' complete. Elapsed time: ",
+        round(elapsed_time[[1]], 2),
+        " seconds. "
+      )
+    )
+    
   } else {
     message(c(
       num_df,

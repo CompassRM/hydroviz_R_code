@@ -6,7 +6,7 @@
 ProcessHydrovizData <- function () {
   
   # NOTE - must set the working directory to the directory where this R file is run from! E.g.:
-  # setwd("~/Box/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code")
+  setwd("~/Box/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code")
   
   # Source files / functions
   source("Hydroviz_PushToPSQL.R")
