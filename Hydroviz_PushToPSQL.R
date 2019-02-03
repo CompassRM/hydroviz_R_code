@@ -783,7 +783,7 @@ PushToPSQL <- function(df) {
       "It took ",
       round(elapsed_time[[1]], 2),
       " seconds to process the data table for ",
-      length(LOCAL_data_to_insert),
+      nrow(LOCAL_data_to_insert),
       " rows of data."
     ))
     
@@ -803,7 +803,7 @@ PushToPSQL <- function(df) {
     # INSERT into data table
     message(c("Inserting into 'DATA' table..."))
     
-    num_to_insert <- length(LOCAL_data_to_insert_NO_ID$data_bridge_id)
+    num_to_insert <- length(LOCAL_data_to_insert_NO_ID[[1]])
     num_dups <- num_df - num_to_insert
     
     SQL_start <- Sys.time()
