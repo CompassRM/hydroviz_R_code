@@ -5,6 +5,9 @@
 
 ProcessHydrovizData <- function () {
   
+  # FLAG
+  save_tables <- "no"
+  
   # NOTE - must set the working directory to the directory where this R file is run from! E.g.:
   setwd("~/Box/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code")
   
@@ -69,9 +72,9 @@ ProcessHydrovizData <- function () {
   insert_into_DB <-
     dlg_message("Would you like to push this data to the DB?", "yesno")$res
   
-  save_tables <-
-    dlg_message("Would you like to export the data tables in a list for debugging?",
-                "yesno")$res
+  # save_tables <-
+  #   dlg_message("Would you like to export the data tables in a list for debugging?",
+  #               "yesno")$res
   
   processing_start <- Sys.time()
   
@@ -99,11 +102,21 @@ ProcessHydrovizData <- function () {
     sprintf("The selected FOLDER is: %s", file_path_no_filename)
   }
   
+  message(" ")
+  message("-----------------------------------")
+  message("FILE PROCESSING STARTED (",
+          length(file_names),
+          " files)")
+  message("-----------------------------------")
+  message(" ")
+  
   ## -------------------------------------------------
   ## READ and PROCESS DATA for each file in file_names
   ## -------------------------------------------------
   
   for (i in 1:length(file_names)) {
+    
+    start_time <- Sys.time() # Start timing the loop
     
     # Declare/clear variables
     df_LIST <- list()
@@ -115,15 +128,15 @@ ProcessHydrovizData <- function () {
     file_path <- paste(file_path_no_filename, file_name, sep = '/')
     
     ## READ DATA
-    message("Reading file: ",
+    message("-----------------------------------------")
+    message("Processing file: ",
             file_name,
             " (",
             i,
             " of ",
             length(file_names),
             ")")
-    
-    start_time <- Sys.time()
+    message("-----------------------------------------")
     
     if (file_extension == "xlsx") {
       rawData <- read.xlsx(file_path, sheet = 1, colNames  = FALSE)
@@ -138,11 +151,11 @@ ProcessHydrovizData <- function () {
     } else
       message ("FILE TYPE NOT SUPPORTED!")
     
-    end_time <- Sys.time()
     
+    end_time <- Sys.time()
     elapsed_time <- difftime(end_time, start_time, units = "secs")
     
-    message("Time: ", round(elapsed_time[[1]], 2), " seconds")
+    # message("Time to read the file: ", round(elapsed_time[[1]], 2), " seconds")
     
     
     ## -------------------------------------------------
@@ -153,15 +166,30 @@ ProcessHydrovizData <- function () {
     # *** Make this more robust ***
     meta_rows = 7 # CHECK THE ASSUMPTION THAT THE DATA WILL BE IN THE SAME FORMAT EVERY TIME!
 
+    pb <-
+      txtProgressBar(
+        min = 1,
+        max = length(names(rawData)),
+        initial = 1,
+        char = "=",
+        width = NA,
+        "title",
+        "label",
+        style = 3,
+        file = ""
+      )
+    
     ## RESHAPE DATA
     for (j in 1:length(names(rawData)))
     {
+      setTxtProgressBar(pb, j)
+      
       # Ignore the first two columns (j = 1, 2)
       if (j >= 3)
       {
         # Get metadata
-        message(c("Processing Data Column ", j - 2, " of ", length(names(rawData)) -
-                    2))
+        # message(c("Processing Data Column ", j - 2, " of ", length(names(rawData)) -
+        #             2))
         metadata <- rawData[1:meta_rows, j]
         
         # Get values
@@ -190,10 +218,10 @@ ProcessHydrovizData <- function () {
         
         if (dataset_type == "RAS") {
           source = "RIVER"
-          message("* RAS Data *")
+          # message("* RAS Data *")
         } else if (dataset_type == "RES") {
           source = "RESERVOIR"
-          message("* RES Data *")
+          # message("* RES Data *")
         } else {
           source = "UNKNOWN"
           message("*** Unknown data source - not sure if it is RES or RAS ***")
@@ -209,7 +237,10 @@ ProcessHydrovizData <- function () {
         # Add alternative to the dataframe
         df_column <- rbind(df_column, tempValues)
       }
+      close(pb)
     }
+    
+    
     
     # Update the rownames - should be numbered from 1:nrow(df_column)
     rownames(df_column) <- seq(length = nrow(df_column))
@@ -255,28 +286,17 @@ ProcessHydrovizData <- function () {
     elapsed_time <-
       difftime(end_time, processing_start, units = "secs")
     
-    message(
-      c(
-        "Finished processing ",
-        i ,
-        " of ",
-        length(file_names),
-        " files. Elapsed time: ",
-        round(elapsed_time[[1]], 2),
-        " seconds."
-      )
-    )
-    
+    message(" ")
+    message("-----------------------------")
+    message(c("Finished processing '", file_name, "'. " ,i, "/", length(file_names), " files processed. Elapsed time: ",
+              round(elapsed_time[[1]], 2),
+              " seconds."))
+    message("-----------------------------")
+
     ## INSERT in DB
     if (insert_into_DB == "yes") {
-      message("-------------------------")
-      message("*** INSERTING INTO DB ***")
-      message("-------------------------")
-      
-      tables_list <- PushToPSQL(df_ALL, save_tables)
-
-      message(c("Finished processing '", file_name, "'. " ,i, "/", length(file_names), " files processed"))
-                
+      tables_list <- PushToPSQL(df_ALL)
+      # message(c("Finished processing '", file_name, "'. " ,i, "/", length(file_names), " files processed"))
     }
     
     # Add the data frames created in this R file to the tables_list for debugging purposes
@@ -285,7 +305,9 @@ ProcessHydrovizData <- function () {
     
     # NOTE: tables_list$alternatives will access the alternatives dataframe
     
+    
     if (length(tables_list) != 0) {
+      message("Adding tables to tables_list")
       tables_list$df_ALL <- df_ALL
       tables_list$df_LIST <- df_LIST
       tables_list$rawData <- rawData
@@ -299,23 +321,22 @@ ProcessHydrovizData <- function () {
 
   ## PROCESSING COMPLETE - display message
   end_time <- Sys.time()
-  elapsed_time <- difftime(end_time, processing_start, units = "secs")
+  elapsed_time <- difftime(end_time, start_time, units = "secs")
   
+  message(" ")
+  message("----------------------------------------------")
   message(
     c(
-      "Data processing complete. Elapsed time: ",
+      "DATA PROCESSING COMPLETE. Elapsed time: ",
       round(elapsed_time[[1]], 2),
       " seconds. ",
       length(file_names),
       " file(s) processed."
     )
   )
+  message("----------------------------------------------")
+  message(" ")
   
-  
-
-  message("----------------")
-  message("*** FINISHED ***")
-  message("----------------")
   
   return(tables_list)
   
