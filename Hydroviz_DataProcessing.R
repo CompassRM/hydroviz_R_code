@@ -9,9 +9,10 @@ ProcessHydrovizData <- function () {
   save_tables <- "no"
   
   # NOTE - must set the working directory to the directory where this R file is run from! E.g.:
-  setwd("~/Box/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code")
-  
-  # Source files / functions
+  # setwd("~/Box/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code")
+  setwd("~/Box Sync/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code")
+
+    # Source files / functions
   source("Hydroviz_PushToPSQL.R")
   
   # # This will set the working path to the path of this file
@@ -216,10 +217,10 @@ ProcessHydrovizData <- function () {
         # Get the first three letters of the alternative name. If RES then set source=RESERVOIR, if RAS then source=RIVER
         dataset_type <- substr(meta_transposed$alternative, 1, 3)
         
-        if (dataset_type == "RAS") {
+        if (dataset_type == "RAS" || dataset_type == "Ras" || dataset_type == "ras") {
           source = "RIVER"
           # message("* RAS Data *")
-        } else if (dataset_type == "RES") {
+        } else if (dataset_type == "RES" | dataset_type == "Res" | dataset_type == "res") {
           source = "RESERVOIR"
           # message("* RES Data *")
         } else {
@@ -262,6 +263,12 @@ ProcessHydrovizData <- function () {
       )]
     
     # Fix date format
+    
+    if (typeof(df_reordered[1,"date"]) == "character") {
+      # If date is type character, need to convert to numeric first
+      df_reordered[, "date"] <- as.numeric(df_reordered[, "date"])
+    } 
+    
     df_reordered[, "date"] <-
       as.Date(df_reordered[, "date"] , origin = "1899-12-30")
     
@@ -278,6 +285,12 @@ ProcessHydrovizData <- function () {
     rownames(df_final) <- seq(length = nrow(df_final))
     df_final$id <- rownames(df_final)
     
+    # Convert EMPTY value fields to NaN for Postgres
+    
+    df_final$value[is.na(df_final$value)] <- NaN
+    
+    
+    # Bind it to df_ALL and add it in df_LIST
     df_ALL <- rbind(df_ALL, df_final)
     df_LIST[[i]] <-
       df_final  # For debugging purposes only - comment out or delete

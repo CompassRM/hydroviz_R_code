@@ -2,6 +2,8 @@
 # df <- df_ALL
 
 PushToPSQL <- function(df) {
+  # setwd("~/Box Sync/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code")
+  
   save_tables_flag = "no"
   
   if (!"RPostgreSQL" %in% rownames(installed.packages())) {
