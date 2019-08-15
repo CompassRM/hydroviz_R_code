@@ -1,11 +1,11 @@
 # Run this following line if testing code without calling the PushToPSQL function
 # df <- df_ALL
 
-PushToPSQL <- function(df) {
+PushToPSQL <- function(df, save_tables_flag, DB_selected) {
   # setwd("~/Box Sync/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code")
   
-  save_tables_flag = "no"
-  
+  if (!exists("save_tables_flag")) {save_tables_flag <- "no"}
+      
   if (!"RPostgreSQL" %in% rownames(installed.packages())) {
     install.packages("RPostgreSQL")
   }
@@ -24,14 +24,32 @@ PushToPSQL <- function(df) {
   load_dot_env(file = ".env") # Loads variables from .env into R environment
   
   # creates a connection to the postgres database
-  connection <- dbConnect(
-    driver,
-    dbname = Sys.getenv("dbname"),
-    host = Sys.getenv("host"),
-    port = Sys.getenv("port"),
-    user = Sys.getenv("user"),
-    password = Sys.getenv("password")
-  )
+  if (DB_selected == "Production DB") {
+    message("**** Inserting into Production DB ****")
+    
+    connection <- dbConnect(
+      driver,
+      dbname = Sys.getenv("dbnameprod"),
+      host = Sys.getenv("prodhost"),
+      port = Sys.getenv("port"),
+      user = Sys.getenv("user"),
+      password = Sys.getenv("password")
+    )
+  } else if (DB_selected == "Testing DB") {
+    message("**** Inserting into Testing DB ****")
+    
+    connection <- dbConnect(
+      driver,
+      dbname = Sys.getenv("dbnametest"),
+      host = Sys.getenv("testhost"),
+      port = Sys.getenv("port"),
+      user = Sys.getenv("user"),
+      password = Sys.getenv("password")
+    )
+  } else {
+    message(" DB NAME NOT RECOGNIZED - STOPPING PushToPSQL")
+    return()
+  }
   
   message(" ")
   message("-------------------------")
@@ -450,7 +468,7 @@ PushToPSQL <- function(df) {
   ## -----------------------
   
   # Prep one year of dates to insert in DB
-  one_year <- df[year(df$date) == 1931,]$date
+  one_year <- df[year(df$date) == 1931, ]$date
   LOCAL_year_dates <- data.frame(id = 1:365)
   LOCAL_year_dates$month_name <- months(unique(one_year))
   LOCAL_year_dates$month <-
