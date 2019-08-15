@@ -1,18 +1,17 @@
 # TO RUN - copy/paste the following into the command line (without commenting):
 # setwd("~/Box/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code")
 # source("Hydroviz_DataProcessing.R")
-# source("Hydroviz_PushToPSQL.R")
+# source("Hydroviz_PushToPSQL_v2.R")
 
 ProcessHydrovizData <- function () {
-  
-  # FLAG
+  # SAVE TABLES?  KEEP THIS AS 'no' UNLESS DEBUGGING
   save_tables <- "no"
   
   # NOTE - must set the working directory to the directory where this R file is run from! E.g.:
   # setwd("~/Box/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code")
   setwd("~/Box Sync/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code")
-
-    # Source files / functions
+  
+  # Source files / functions
   source("Hydroviz_PushToPSQL.R")
   
   # # This will set the working path to the path of this file
@@ -49,7 +48,7 @@ ProcessHydrovizData <- function () {
   library("svDialogs")
   library("gdata")
   
-
+  
   # Declare global variables
   tables_list <- list()
   rawData <- data.frame()
@@ -66,13 +65,82 @@ ProcessHydrovizData <- function () {
       getwd(),
       "Please select a file",
       multiple = FALSE,
-      filters = dlg_filters["All",],
+      filters = dlg_filters["All", ],
       gui = .GUI
     )$res
   
-  insert_into_DB <-
-    dlg_message("Would you like to push this data to the DB?", "yesno")$res
   
+  ## INSERT INTO DB DIALOGUE
+  
+  insert_into_DB <- ""
+  DB_temp <- ""
+  DB_confirm <- ""
+  DB_selected <- ""
+  cancel_DB <- ""
+  select_DB_flag <- FALSE
+  
+  insert_into_DB <-
+    dlg_message("Would you like to push this data to a DB?", "yesno")$res
+  
+  choices <- list("Production DB", "Testing DB")
+  
+  DBList <-
+    function() {
+      dlg_list(
+        choices,
+        preselect = NULL,
+        multiple = FALSE,
+        title = NULL,
+        gui = .GUI
+      )$res
+    }
+  
+  if (insert_into_DB == "yes") {
+    select_DB_flag = TRUE
+  }
+  
+  while (select_DB_flag) {
+    DB_temp <- DBList()
+    
+    if (!is.na(DB_temp[1])) {
+      # A DB was selected
+      DB_confirm <-
+        dlg_message(paste("You selected *", DB_temp, "* Is this correct?"),
+                    "yesno")$res
+      
+      if (DB_confirm == "yes") {
+        DB_selected <- DB_temp
+        message("Will push to DB: ", DB_selected)
+        select_DB_flag <- FALSE
+      }
+    } else {
+      # 'CANCEL' was selected - confirm
+      cancel_DB <-
+        dlg_message(paste("Would you like to CANCEL pushing this data to a DB?"),
+                    "yesno")$res
+      if (cancel_DB == "yes") {
+        insert_into_DB <- "no"
+        select_DB_flag <- FALSE
+      }
+    }
+  }
+  
+  # message("DB ROUTINE OUTPUTS")
+  # message("insert_into_DB: ", insert_into_DB)
+  # message("DB_temp: ", DB_temp)
+  # message("DB_confirm: ", DB_confirm)
+  # message("DB_selected: ", DB_selected)
+  # message("cancel_DB: ", cancel_DB)
+  
+  ## -----------------------------
+  
+  
+  
+  
+  
+  
+  
+  #
   # save_tables <-
   #   dlg_message("Would you like to export the data tables in a list for debugging?",
   #               "yesno")$res
@@ -116,7 +184,6 @@ ProcessHydrovizData <- function () {
   ## -------------------------------------------------
   
   for (i in 1:length(file_names)) {
-    
     start_time <- Sys.time() # Start timing the loop
     
     # Declare/clear variables
@@ -166,7 +233,7 @@ ProcessHydrovizData <- function () {
     # How many rows of metadata?
     # *** Make this more robust ***
     meta_rows = 7 # CHECK THE ASSUMPTION THAT THE DATA WILL BE IN THE SAME FORMAT EVERY TIME!
-
+    
     pb <-
       txtProgressBar(
         min = 1,
@@ -194,12 +261,14 @@ ProcessHydrovizData <- function () {
         metadata <- rawData[1:meta_rows, j]
         
         # Get values
-        tempValues <- data.frame(rawData[8:nrow(rawData), c(1, 2, j)])
+        tempValues <-
+          data.frame(rawData[8:nrow(rawData), c(1, 2, j)])
         colnames(tempValues) <- c("id", "date", "value")
         
         # Transpose metadata
         meta_transposed <- data.frame(t(metadata))
-        meta_transposed$source <- NA   # CAN I DROP STEPS LIKE THIS TO SAVE COMPUTATIONAL EFFORT??
+        meta_transposed$source <-
+          NA   # CAN I DROP STEPS LIKE THIS TO SAVE COMPUTATIONAL EFFORT??
         meta_names <-
           c(
             "river",
@@ -217,10 +286,12 @@ ProcessHydrovizData <- function () {
         # Get the first three letters of the alternative name. If RES then set source=RESERVOIR, if RAS then source=RIVER
         dataset_type <- substr(meta_transposed$alternative, 1, 3)
         
-        if (dataset_type == "RAS" || dataset_type == "Ras" || dataset_type == "ras") {
+        if (dataset_type == "RAS" ||
+            dataset_type == "Ras" || dataset_type == "ras") {
           source = "RIVER"
           # message("* RAS Data *")
-        } else if (dataset_type == "RES" | dataset_type == "Res" | dataset_type == "res") {
+        } else if (dataset_type == "RES" |
+                   dataset_type == "Res" | dataset_type == "res") {
           source = "RESERVOIR"
           # message("* RES Data *")
         } else {
@@ -264,20 +335,20 @@ ProcessHydrovizData <- function () {
     
     # Fix date format
     
-    if (typeof(df_reordered[1,"date"]) == "character") {
+    if (typeof(df_reordered[1, "date"]) == "character") {
       # If date is type character, need to convert to numeric first
       df_reordered[, "date"] <- as.numeric(df_reordered[, "date"])
-    } 
+    }
     
     df_reordered[, "date"] <-
       as.Date(df_reordered[, "date"] , origin = "1899-12-30")
     
     ## REMOVE LEAP DAYS AND 1930 (INCOMPLETE YEAR)
     df_no1930 <-
-      df_reordered[lubridate::year(df_reordered$date) != 1930, ]
+      df_reordered[lubridate::year(df_reordered$date) != 1930,]
     df_final <-
       df_no1930[!(lubridate::month(df_no1930$date) == 2 &
-                    lubridate::day(df_no1930$date) == 29), ]
+                    lubridate::day(df_no1930$date) == 29),]
     
     df_final$location <- as.character(df_final$location)
     
@@ -301,14 +372,25 @@ ProcessHydrovizData <- function () {
     
     message(" ")
     message("-----------------------------")
-    message(c("Finished processing '", file_name, "'. " ,i, "/", length(file_names), " files processed. Elapsed time: ",
-              round(elapsed_time[[1]], 2),
-              " seconds."))
+    message(
+      c(
+        "Finished processing '",
+        file_name,
+        "'. " ,
+        i,
+        "/",
+        length(file_names),
+        " files processed. Elapsed time: ",
+        round(elapsed_time[[1]], 2),
+        " seconds."
+      )
+    )
     message("-----------------------------")
-
+    
+    
     ## INSERT in DB
     if (insert_into_DB == "yes") {
-      tables_list <- PushToPSQL(df_ALL)
+      tables_list <- PushToPSQL(df_ALL, save_tables, DB_selected)
       # message(c("Finished processing '", file_name, "'. " ,i, "/", length(file_names), " files processed"))
     }
     
@@ -331,7 +413,7 @@ ProcessHydrovizData <- function () {
     # Change this so that it SAVES the tables to disk (prompt first)
   }
   
-
+  
   ## PROCESSING COMPLETE - display message
   end_time <- Sys.time()
   elapsed_time <- difftime(end_time, start_time, units = "secs")
