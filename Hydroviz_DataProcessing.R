@@ -50,7 +50,6 @@ ProcessHydrovizData <- function () {
   
   
   # Declare global variables
-  tables_list <- list()
   rawData <- data.frame()
   
   # Choose file and get path
@@ -65,7 +64,7 @@ ProcessHydrovizData <- function () {
       getwd(),
       "Please select a file",
       multiple = FALSE,
-      filters = dlg_filters["All", ],
+      filters = dlg_filters["All",],
       gui = .GUI
     )$res
   
@@ -344,10 +343,10 @@ ProcessHydrovizData <- function () {
     
     ## REMOVE LEAP DAYS AND 1930 (INCOMPLETE YEAR)
     df_no1930 <-
-      df_reordered[lubridate::year(df_reordered$date) != 1930,]
+      df_reordered[lubridate::year(df_reordered$date) != 1930, ]
     df_final <-
       df_no1930[!(lubridate::month(df_no1930$date) == 2 &
-                    lubridate::day(df_no1930$date) == 29),]
+                    lubridate::day(df_no1930$date) == 29), ]
     
     df_final$location <- as.character(df_final$location)
     
@@ -387,7 +386,7 @@ ProcessHydrovizData <- function () {
     
     ## INSERT in DB
     if (insert_into_DB == "yes") {
-      tables_list <- PushToPSQL(df_ALL, save_tables, DB_selected)
+      PushToPSQL(df_ALL, save_tables, DB_selected)
       # message(c("Finished processing '", file_name, "'. " ,i, "/", length(file_names), " files processed"))
     }
     
@@ -413,6 +412,6 @@ ProcessHydrovizData <- function () {
   message(" ")
   
   
-  return(tables_list)
+  return()
   
 }

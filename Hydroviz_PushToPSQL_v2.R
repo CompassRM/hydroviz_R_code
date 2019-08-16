@@ -1178,64 +1178,6 @@ PushToPSQL_v2 <- function(df, save_tables_flag, DB_selected) {
     ))
   }
   
-  if (save_tables_flag == "yes") {
-    message("*** Exporting tables to 'tables_list' for debugging ***")
-    
-    # Get most recent versions of the DB TABLES
-    DB_data_bridge <- dbReadTable(connection, "data_bridge")
-    DB_data <- dbReadTable(connection, "data")
-    DB_stats <- dbReadTable(connection, "stats")
-    
-    # --- These might be redundant
-    DB_alternatives <- dbReadTable(connection, "alternatives")
-    DB_locations <- dbReadTable(connection, "locations")
-    DB_rivers <- dbReadTable(connection, "rivers")
-    DB_sources <- dbReadTable(connection, "sources")
-    DB_types <- dbReadTable(connection, "types")
-    DB_modeled_dates <- dbReadTable(connection, "modeled_dates")
-    DB_year_dates <- dbReadTable(connection, "year_dates")
-    
-    tables_list <-
-      list(
-        "LOCAL_alternatives" = LOCAL_alternatives,
-        " LOCAL_sources" = LOCAL_sources,
-        "LOCAL_types" = LOCAL_types,
-        " LOCAL_rivers" = LOCAL_rivers,
-        " LOCAL_locations" = LOCAL_locations,
-        "LOCAL_modeled_dates" = LOCAL_modeled_dates,
-        " LOCAL_months" = LOCAL_months,
-        "LOCAL_year_dates" = LOCAL_year_dates,
-        " LOCAL_data_bridge" = LOCAL_data_bridge,
-        "LOCAL_data" = LOCAL_data,
-        " LOCAL_model_stats" = LOCAL_model_stats,
-        "LOCAL_model_stats_all" = LOCAL_model_stats_all,
-        "DB_alternatives" = DB_alternatives,
-        " DB_sources" = DB_sources,
-        "DB_types" = DB_types,
-        " DB_rivers" = DB_rivers,
-        " DB_locations" = DB_locations,
-        "DB_modeled_dates" = DB_modeled_dates,
-        " DB_months" = DB_months,
-        "DB_year_dates" = DB_year_dates,
-        " DB_data_bridge" = DB_data_bridge,
-        "DB_data" = DB_data,
-        " DB_stats" = DB_stats,
-        "ALTS_inserted" = ALTS_inserted,
-        "SOURCES_inserted" = SOURCES_inserted,
-        "TYPES_inserted" = TYPES_inserted,
-        "RIVERS_inserted" = RIVERS_inserted,
-        "LOCATIONS_inserted" = LOCATIONS_inserted,
-        "MODLED_DATES_inserted" = MODLED_DATES_inserted,
-        "MONTHS_inserted" = MONTHS_inserted,
-        "YEAR_DATES_inserted" = YEAR_DATES_inserted,
-        "DATA_BRIDGE_inserted" = DATA_BRIDGE_inserted,
-        "DATA_inserted" = DATA_inserted,
-        "STATS_inserted" = STATS_inserted
-      )
-  } else {
-    tables_list <- list()
-  }
-  
   end_time <- Sys.time()
   elapsed_time <-
     difftime(end_time, SQL_module_start, units = "secs")
@@ -1251,6 +1193,6 @@ PushToPSQL_v2 <- function(df, save_tables_flag, DB_selected) {
   
   dbDisconnect(connection)
   
-  return(tables_list)
+  return()
   
 }
