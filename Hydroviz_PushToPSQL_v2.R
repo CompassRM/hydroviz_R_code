@@ -4,13 +4,13 @@
 PushToPSQL <- function(df, DB_selected) {
   message(
     "IN PushToPSQL. First row of df_final: ",
-    df[1,]$alternative,
+    df[1, ]$alternative,
     " ",
-    df[1,]$type,
+    df[1, ]$type,
     " ",
-    df[1,]$river,
+    df[1, ]$river,
     " ",
-    df[1,]$location
+    df[1, ]$location
   )
   
   # setwd("~/Box Sync/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code")
@@ -155,8 +155,9 @@ PushToPSQL <- function(df, DB_selected) {
         )
       )
     
-    message("Inserted ALTERNATIVE into DB: ", paste(returned_id[1,1], "-", returned_id[1,2]))
-
+    message("Inserted ALTERNATIVE into DB: ",
+            paste(returned_id[1, 1], "-", returned_id[1, 2]))
+    
     # Add the id to LOCAL_data_bridge
     LOCAL_data_bridge[1, "alt_id"] <- returned_id$id
     
@@ -196,7 +197,8 @@ PushToPSQL <- function(df, DB_selected) {
         )
       )
     
-    message("Inserted TYPE into DB: ", paste(returned_id[1,1], "-", returned_id[1,2]))
+    message("Inserted TYPE into DB: ",
+            paste(returned_id[1, 1], "-", returned_id[1, 2]))
     
     # Add the id to LOCAL_data_bridge
     LOCAL_data_bridge[1, "type_id"] <- returned_id$id
@@ -237,7 +239,8 @@ PushToPSQL <- function(df, DB_selected) {
         )
       )
     
-    message("Inserted SOURCE into DB: ", paste(returned_id[1,1], "-", returned_id[1,2]))
+    message("Inserted SOURCE into DB: ",
+            paste(returned_id[1, 1], "-", returned_id[1, 2]))
     
     # Add the id to LOCAL_data_bridge
     LOCAL_data_bridge[1, "source_id"] <- returned_id$id
@@ -277,7 +280,8 @@ PushToPSQL <- function(df, DB_selected) {
         )
       )
     
-    message("Inserted RIVER into DB: ", paste(returned_id[1,1], "-", returned_id[1,2]))
+    message("Inserted RIVER into DB: ",
+            paste(returned_id[1, 1], "-", returned_id[1, 2]))
     
     # Add the id to LOCAL_data_bridge
     LOCAL_data_bridge[1, "river_id"] <- returned_id$id
@@ -317,7 +321,8 @@ PushToPSQL <- function(df, DB_selected) {
         )
       )
     
-    message("Inserted LOCATION into DB: ", paste(returned_id[1,1], "-", returned_id[1,2]))
+    message("Inserted LOCATION into DB: ",
+            paste(returned_id[1, 1], "-", returned_id[1, 2]))
     
     # Add the id to LOCAL_data_bridge
     LOCAL_data_bridge[1, "location_id"] <- returned_id$id
@@ -356,16 +361,7 @@ PushToPSQL <- function(df, DB_selected) {
     
   } else {
     # CONTINUE PROCESSING DATA TO INSERT INTO THE DB
-    # 
-    # LOCAL_data_bridge[1, "alt_id"] <- as.character(DB_alternative$id)
-    # LOCAL_data_bridge[1, "type_id"] <- as.character(DB_type$id)
-    # LOCAL_data_bridge[1, "source_id"] <- as.character(DB_source$id)
-    # LOCAL_data_bridge[1, "river_id"] <- as.character(DB_river$id)
-    # LOCAL_data_bridge[1, "location_id"] <-
-    #   as.character(DB_location$id)
-    
 
-    
     # -----------------------
     # Insert data_bridge into DB
     # -----------------------
@@ -375,535 +371,74 @@ PushToPSQL <- function(df, DB_selected) {
         connection,
         paste0(
           "INSERT INTO data_bridge (alternative_id, type_id, source_id, river_id, location_id, code) VALUES (",
-          paste(LOCAL_data_bridge[1,1], LOCAL_data_bridge[1,2], LOCAL_data_bridge[1,3], LOCAL_data_bridge[1,4], LOCAL_data_bridge[1,5], sep=","), ", '", LOCAL_data_bridge[1,6], "'",
+          paste(
+            LOCAL_data_bridge[1, 1],
+            LOCAL_data_bridge[1, 2],
+            LOCAL_data_bridge[1, 3],
+            LOCAL_data_bridge[1, 4],
+            LOCAL_data_bridge[1, 5],
+            sep = ","
+          ),
+          ", '",
+          LOCAL_data_bridge[1, 6],
+          "'",
           ") RETURNING id;"
         )
       )
     
-    message("Inserted DATA_BRIDGE into DB: id - ", paste(returned_id[1,1], ", CODE -", LOCAL_data_bridge[1,6]))
-    
-    
-    
-    
-    
-  }
-  
-  
-  
-  
-  
-  
-  
- 
-  
-  
-  
-  
-  
-  # DB_alternatives <-
-  #   dbGetQuery(
-  #     connection,
-  #     paste0(
-  #       "SELECT id, alternative FROM alternatives WHERE alternative = '",
-  #       LOCAL_data_summary[1, "alternative"] ,
-  #       "' UNION SELECT id, type FROM types WHERE type = '",
-  #       LOCAL_data_summary[1, "type"] ,
-  #       "'"
-  #     )
-  #   )
-  
-  LOCAL_data_bridge <- data.frame(dplyr::distinct(df, alternative))
-  
-  
-  
-  ## -----------------------
-  ## Build ALTERNATIVES table
-  ## -----------------------
-  
-  # Get alternative name from the df
-  # Each column in the xlsx spreadsheet is for a single alternative - so just grab the first alternative name
-  LOCAL_alternatives <- data.frame(dplyr::distinct(df, alternative))
-  # ALTERNATIVELY COULD JUST GRAB THE FIRST ALT NAME - THEY'LL ALL BE THE SAME.
-  
-  # # Build df for testing
-  # TESTdf<-data.frame("testing_errr")
-  # names(TESTdf) <- "alternative"
-  # LOCAL_alternatives <- rbind(LOCAL_alternatives, TESTdf)
-  #
-  # TESTdf<-data.frame("testing_qwqwerwdf")
-  # names(TESTdf) <- "alternative"
-  # LOCAL_alternatives <- rbind(LOCAL_alternatives, TESTdf)
-  #
-  # TESTdf<-data.frame("Res_Ftpk2_SpawnCue_20190523")
-  # names(TESTdf) <- "alternative"
-  # LOCAL_alternatives <- rbind(LOCAL_alternatives, TESTdf)
-  
-  # LOCAL_alts_list <- LOCAL_alternatives$alternative
-  LOCAL_alts_list <- as.character(LOCAL_alternatives$alternative)
-  LOCAL_alts_list <-
-    paste0('\'', paste(LOCAL_alts_list, collapse = '\',\''), '\'')
-  
-  
-  # QUERY USING THE STRING to see if any of the LOCAL_alternatives exist in the DB (return all LOCAL_alternatives that are in the DB)
-  DB_alternatives <-
-    dbGetQuery(
-      connection,
-      paste0(
-        "SELECT id, alternative FROM alternatives WHERE alternative IN (",
-        LOCAL_alts_list,
-        ")"
-      )
-    )
-  
-  
-  # NOTE - IF THE ALT IS *NOT* IN THE DB, THEN THE DATASET *MUST* BE NEW - WILL NEED A NEW DATA BRIDGE.
-  # IF THE ALT *IS* IN THE DB, THE DATASET MAY BE NEW OR MAY ALREADY BE IN THE DB - NEED TO CONSIDER BOTH CASES
-  
-  # CHECK SIZE OF DB_alternatives (returned result from DB).
-  # If ZERO, then the new alt is not in DB, need to insert it.
-  # If NOT zero, then it's in the DB, so just put the id into LOCAL_data_bridge and move on.
-  
-  
-  
-  if (nrow(DB_alternatives) == 0) {
-    # Insert alternative name into the DB and return the id
-    
-    returned_id <-
-      dbGetQuery(
-        connection,
-        paste0(
-          "INSERT INTO alternatives (alternative) VALUES (",
-          LOCAL_alts_list,
-          ") RETURNING id, alternative;"
-        )
-      )
-    
-    # Add the id to LOCAL_data_bridge
-    LOCAL_data_bridge[1, "Alt_id"] <- returned_id$id
-    
-  } else {
-    # Add the id from the SELECT query to LOCAL_data_bridge
-    LOCAL_data_bridge[1, "Alt_id"] <- DB_alternatives$id
-    
-  }
-  
-  
-  # message(
-  #   c(
-  #     length(LOCAL_alternatives$alternative),
-  #     " ALTERNATIVES in df, ",
-  #     length(db_matches),
-  #     " duplicates, ",
-  #     num_insert,
-  #     " inserted in DB"
-  #   )
-  # )
-  
-  
-  
-  
-  # ALGORITHM:
-  # If it's NOT in the DB - add it, get the ID, put that ID as the first number in the temp variable
-  # for the data bridge code
-  # Otherwise, if it IS in the DB, just continue
-  
-  
-  
-  # DON'T NEED THIS STUFF
-  # Which of the LOCAL_alternatives is in the DB?
-  db_matches <-
-    match(DB_alternatives$alternative,
-          LOCAL_alternatives$alternative)
-  
-  # From LOCAL_alternatives, remove all of those that are in the DB to get just those to be inserted
-  to_insert <- LOCAL_alternatives[-c(db_matches), , drop = F]
-  
-  # Check if there are any remaining LOCAL_alternatives, insert them in the DB
-  num_insert <- length(to_insert[[1]])
-  
-  # Rearrange the data as needed for the insert query
-  to_insert <- as.character(to_insert$alternative)
-  to_insert <-
-    paste0("('", paste(to_insert, collapse = '\'),(\''), "')")
-  
-  if (num_insert > 0) {
-    DB_alternatives_inserted <-
-      dbGetQuery(
-        connection,
-        paste0(
-          "INSERT INTO alternatives (alternative) VALUES ",
-          to_insert,
-          " RETURNING id, alternative;"
-        )
-      )
-  }
-  
-  message(
-    c(
-      length(LOCAL_alternatives$alternative),
-      " ALTERNATIVES in df, ",
-      length(db_matches),
-      " duplicates, ",
-      num_insert,
-      " inserted in DB"
-    )
-  )
-  
-  
-  # # ***********************
-  # DB_alternatives_after <- dbReadTable(connection, "alternatives")
-  # # ***********************
-  
-  
-  
-  
-  ## -----------------------
-  ## Build SOURCES table
-  ## -----------------------
-  
-  # Get data from the df
-  LOCAL_sources <- data.frame(dplyr::distinct(df, source))
-  
-  # Build df for testing
-  TESTdf <- data.frame("test_source")
-  names(TESTdf) <- "source"
-  LOCAL_sources <- rbind(LOCAL_sources, TESTdf)
-  
-  LOCAL_sources_list <- as.character(LOCAL_sources$source)
-  LOCAL_sources_list <-
-    paste0('\'', paste(LOCAL_sources_list, collapse = '\',\''), '\'')
-  
-  # QUERY USING THE STRING to see if any of the LOCAL_sources exist in the DB (return all LOCAL_sources that are in the DB)
-  DB_sources <-
-    dbGetQuery(
-      connection,
-      paste0(
-        "SELECT source FROM sources WHERE source IN (",
-        LOCAL_sources_list,
-        ")"
-      )
-    )
-  
-  # Which of the LOCAL_sources is in the DB?
-  db_matches <- match(DB_sources$source, LOCAL_sources$source)
-  
-  # From LOCAL_sources, remove all of those that are in the DB to get just those to be inserted
-  to_insert <- LOCAL_sources[-c(db_matches), , drop = F]
-  
-  # Check if there are any remaining LOCAL_alternatives, insert them in the DB
-  num_insert <- length(to_insert[[1]])
-  
-  if (num_insert > 0) {
-    dbWriteTable(
-      connection,
-      "sources",
-      to_insert,
-      row.names = FALSE,
-      append = TRUE,
-      overwrite = FALSE
-    ) # to protect current values
-    
-    message(c(
-      length(LOCAL_sources$source),
-      " SOURCES in df, ",
-      length(db_matches),
-      " duplicates, ",
-      num_insert,
-      " inserted in DB"
-    ))
-    
-  } else {
-    message(c(
-      length(LOCAL_sources$source),
-      " SOURCES in df, ",
-      length(db_matches),
-      " duplicates, ",
-      num_insert,
-      " inserted in DB"
-    ))
-  }
-  
-  # ***********************
-  DB_sources_after <- dbReadTable(connection, "sources")
-  # ***********************
-  
-  
-  
-  
-  ## -----------------------
-  ## Build TYPES table
-  ## -----------------------
-  
-  # Get data from the df
-  LOCAL_types <-
-    data.frame(dplyr::distinct(df, type, units, measure))
-  
-  LOCAL_types_list <- as.character(LOCAL_types$type)
-  LOCAL_types_list <-
-    paste0('\'', paste(LOCAL_types_list, collapse = '\',\''), '\'')
-  
-  # QUERY USING THE STRING to see if any of the LOCAL_types exist in the DB (return all LOCAL_types that are in the DB)
-  DB_types <-
-    dbGetQuery(connection,
-               paste0("SELECT type FROM types WHERE type IN (", LOCAL_types_list, ")"))
-  # NOTE - THIS QUERY WORKS SO LONG AS THERE IS ONLY ONE VERSION OF 'FLOW' OR 'STAGE' FOR EXAMPLE
-  # IF THERE IS ANOTHER VERSION OF FLOW THAT HAS DIFFERENT UNITS OR MEASURE, THIS WILL FAIL.
-  
-  # Which of the LOCAL_types is in the DB?
-  db_matches <- match(DB_types$type, LOCAL_types$type)
-  
-  # From LOCAL_sources, remove all of those that are in the DB to get just those to be inserted
-  to_insert <- LOCAL_types[-c(db_matches), , drop = F]
-  
-  # Check if there are any remaining LOCAL_alternatives, insert them in the DB
-  num_insert <- length(to_insert[[1]])
-  
-  if (num_insert > 0) {
-    dbWriteTable(
-      connection,
-      "types",
-      to_insert,
-      row.names = FALSE,
-      append = TRUE,
-      overwrite = FALSE
-    ) # to protect current values
-    
-    message(c(
-      length(LOCAL_types$type),
-      " TYPES in df, ",
-      length(db_matches),
-      " duplicates, ",
-      num_insert,
-      " inserted in DB"
-    ))
-    
-  } else {
-    message(c(
-      length(LOCAL_types$type),
-      " TYPES in df, ",
-      length(db_matches),
-      " duplicates, ",
-      num_insert,
-      " inserted in DB"
-    ))
-  }
-  
-  
-  
-  
-  
-  ## -----------------------
-  ## Build RIVERS table
-  ## -----------------------
-  
-  # Get data from the df
-  LOCAL_rivers <- data.frame(dplyr::distinct(df, river))
-  LOCAL_rivers$river <- as.character(LOCAL_rivers$river)
-  
-  LOCAL_rivers_list <- as.character(LOCAL_rivers$river)
-  LOCAL_rivers_list <-
-    paste0('\'', paste(LOCAL_rivers_list, collapse = '\',\''), '\'')
-  
-  # QUERY USING THE STRING to see if any of the LOCAL_rivers exist in the DB (return all LOCAL_rivers that are in the DB)
-  DB_rivers <-
-    dbGetQuery(
-      connection,
-      paste0(
-        "SELECT river FROM rivers WHERE river IN (",
-        LOCAL_rivers_list,
-        ")"
-      )
-    )
-  
-  # Which of the LOCAL_rivers is in the DB?
-  db_matches <- match(DB_rivers$river, LOCAL_rivers$river)
-  
-  # From LOCAL_sources, remove all of those that are in the DB to get just those to be inserted
-  to_insert <- LOCAL_rivers[-c(db_matches), , drop = F]
-  
-  # Check if there are any remaining LOCAL_alternatives, insert them in the DB
-  num_insert <- length(to_insert[[1]])
-  
-  if (num_insert > 0) {
-    dbWriteTable(
-      connection,
-      "rivers",
-      to_insert,
-      row.names = FALSE,
-      append = TRUE,
-      overwrite = FALSE
-    ) # to protect current values
-    
-    message(c(
-      length(LOCAL_rivers$river),
-      " RIVERS in df, ",
-      length(db_matches),
-      " duplicates, ",
-      num_insert,
-      " inserted in DB"
-    ))
-    
-  } else {
-    message(c(
-      length(LOCAL_rivers$river),
-      " RIVERS in df, ",
-      length(db_matches),
-      " duplicates, ",
-      num_insert,
-      " inserted in DB"
-    ))
-  }
-  
-  
-  
-  ## -----------------------
-  ## Build LOCATIONS table
-  ## -----------------------
-  
-  # NOTE - RUN THE RISK OF COLLISIONS HERE - THE LOCATION NUMBERS MAY NOT BE UNIQUE!
-  # IT'S LIKELY THAT WE'LL GET LUCKY AND THEY WILL BE UNIQUE, BUT WHAT IS UNIQUE IS THE
-  # COMBINATION OF 'RIVER' + 'LOCATION'
-  
-  
-  # Get data from the df
-  LOCAL_months <- data.frame(dplyr::distinct(df, month))
-  LOCAL_months$location <- as.character(LOCAL_locations$location)
-  
-  LOCAL_locations_list <- as.character(LOCAL_locations$location)
-  LOCAL_locations_list <-
-    paste0('\'', paste(LOCAL_locations_list, collapse = '\',\''), '\'')
-  
-  # QUERY USING THE STRING to see if any of the LOCAL_locations exist in the DB (return all LOCAL_locations that are in the DB)
-  DB_locations <-
-    dbGetQuery(
-      connection,
-      paste0(
-        "SELECT location FROM locations WHERE location IN (",
-        LOCAL_locations_list,
-        ")"
-      )
-    )
-  
-  # Which of the LOCAL_locations is in the DB?
-  db_matches <-
-    match(DB_locations$location, LOCAL_locations$location)
-  
-  # From LOCAL_sources, remove all of those that are in the DB to get just those to be inserted
-  to_insert <- LOCAL_locations[-c(db_matches), , drop = F]
-  
-  # Check if there are any remaining LOCAL_alternatives, insert them in the DB
-  num_insert <- length(to_insert[[1]])
-  
-  if (num_insert > 0) {
-    dbWriteTable(
-      connection,
-      "locations",
-      to_insert,
-      row.names = FALSE,
-      append = TRUE,
-      overwrite = FALSE
-    ) # to protect current values
-    
     message(
-      c(
-        length(LOCAL_locations$location),
-        " LOCATIONS in df, ",
-        length(db_matches),
-        " duplicates, ",
-        num_insert,
-        " inserted in DB"
-      )
+      "Inserted DATA_BRIDGE into DB: id - ",
+      paste(returned_id[1, 1], ", CODE -", LOCAL_data_bridge[1, 6])
     )
     
-  } else {
-    message(
-      c(
-        length(LOCAL_locations$location),
-        " LOCATIONS in df, ",
-        length(db_matches),
-        " duplicates, ",
-        num_insert,
-        " inserted in DB"
-      )
-    )
-  }
-  
-  
-  ## -----------------------
-  ## Build MONTHS table
-  ## -----------------------
-  
-  # Check if the 'months' table exists. If it does, skip this step.
-  DB_months_count <-
-    dbGetQuery(connection, "SELECT COUNT(DISTINCT month_name) FROM months")
-  
-  if ((DB_months_count < 12) && (DB_months_count > 0)) {
-    message("Possible DB error - less than 12 months in the 'months' table")
     
-  } else if (DB_months_count == 0) {
-    # INSERT INTO DB
-    # Get data from the df
-    distinctDates <- data.frame(dplyr::distinct(df, date))
-    LOCAL_months <-
-      data.frame(month_name = unique(months(distinctDates$date)))
+    ## -----------------------
+    ## Build MONTHS table
+    ## -----------------------
     
-    LOCAL_months_list <- as.character(LOCAL_months$month)
-    LOCAL_months_list <-
-      paste0('\'', paste(LOCAL_months_list, collapse = '\',\''), '\'')
-    
-    # QUERY USING THE STRING to see if any of the LOCAL_months exist in the DB (return all LOCAL_months that are in the DB)
+    # Check if the 'months' table exists. If it does, skip this step.
     DB_months <-
-      dbGetQuery(
-        connection,
-        paste0(
-          "SELECT month FROM months WHERE month IN (",
-          LOCAL_months_list,
-          ")"
-        )
-      )
+      dbGetQuery(connection, "SELECT month_name FROM months")
     
-    # Which of the LOCAL_months is in the DB?
-    db_matches <- match(DB_months$month, LOCAL_months$month)
-    
-    # From LOCAL_sources, remove all of those that are in the DB to get just those to be inserted
-    to_insert <- LOCAL_months[-c(db_matches), , drop = F]
-    
-    # Check if there are any remaining LOCAL_alternatives, insert them in the DB
-    num_insert <- length(to_insert[[1]])
-    
-    if (num_insert > 0) {
+    if ((nrow(DB_months) < 12) && (nrow(DB_months) > 0)) {
+      message("Possible DB error - less than 12 months in the 'months' table")
+      
+    } else if (nrow(DB_months) == 0) {
+      # INSERT INTO DB
+      
+      # Get data from the df
+      distinctDates <- data.frame(dplyr::distinct(df, date))
+      LOCAL_months <-
+        data.frame(month_name = unique(months(distinctDates$date)))
+      
+      LOCAL_months_list <- as.character(LOCAL_months$month)
+      LOCAL_months_list <-
+        paste0('\'', paste(LOCAL_months_list, collapse = '\',\''), '\'')
+      
       dbWriteTable(
         connection,
         "months",
-        to_insert,
+        LOCAL_months_list,
         row.names = FALSE,
         append = TRUE,
-        overwrite = FALSE
-      ) # to protect current values
+        overwrite = FALSE # to protect current values
+      )
       
-      message(c(
-        length(LOCAL_months$month),
-        " MONTHS in df, ",
-        length(db_matches),
-        " duplicates, ",
-        num_insert,
-        " inserted in DB"
-      ))
+      message("Month names inserted into DB in 'months' table")
       
     } else {
-      message(c(
-        length(LOCAL_months$month),
-        " MONTHS in df, ",
-        length(db_matches),
-        " duplicates, ",
-        num_insert,
-        " inserted in DB"
-      ))
+      message("Months table already in DB - nothing added")
     }
     
-  } else {
-    message("Months table already in DB - nothing added")
+    
+  
+    
   }
+  
+  
+  
+  
+  
   
   
   ## -----------------------
@@ -1019,7 +554,7 @@ PushToPSQL <- function(df, DB_selected) {
     # Get data from the df
     
     # Prep one year of dates to insert in DB
-    one_year <- df[lubridate::year(df$date) == 1931, ]$date
+    one_year <- df[lubridate::year(df$date) == 1931,]$date
     LOCAL_year_dates <- data.frame(id = 1:365)
     LOCAL_year_dates$month_name <- months(unique(one_year))
     LOCAL_year_dates$month <-
@@ -1106,7 +641,7 @@ PushToPSQL <- function(df, DB_selected) {
   
   
   # Prep one year of dates to insert in DB
-  one_year <- df[lubridate::year(df$date) == 1931, ]$date
+  one_year <- df[lubridate::year(df$date) == 1931,]$date
   LOCAL_year_dates <- data.frame(id = 1:365)
   LOCAL_year_dates$month_name <- months(unique(one_year))
   LOCAL_year_dates$month <-
