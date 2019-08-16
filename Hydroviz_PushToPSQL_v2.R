@@ -67,17 +67,6 @@ PushToPSQL_v2 <- function(df, save_tables_flag, DB_selected) {
       password = Sys.getenv("password")
     )
     
-    # This works as well.. using ODBC instead of RPostgreSQL package
-    # connection <- dbConnect(
-    #   odbc(),
-    #   Driver = "PostgreSQL Driver",
-    #   Server = Sys.getenv("testhost"),
-    #   Database = Sys.getenv("dbnametest"),
-    #   Port = Sys.getenv("port"),
-    #   Uid = Sys.getenv("user"),
-    #   Pwd = Sys.getenv("password")
-    # )
-    
   } else {
     message(" DB NAME NOT RECOGNIZED - STOPPING PushToPSQL")
     return()
@@ -101,14 +90,18 @@ PushToPSQL_v2 <- function(df, save_tables_flag, DB_selected) {
   # Get alternatives data from the df
   LOCAL_alternatives <- data.frame(dplyr::distinct(df, alternative))
   
-  # Build df for testing
-  TESTdf<-data.frame("testing_123")
-  names(TESTdf) <- "alternative"
-  LOCAL_alternatives <- rbind(LOCAL_alternatives, TESTdf)
-  
-  TESTdf<-data.frame("Res_Ftpk2_SpawnCue_20190523")
-  names(TESTdf) <- "alternative"
-  LOCAL_alternatives <- rbind(LOCAL_alternatives, TESTdf)
+  # # Build df for testing
+  # TESTdf<-data.frame("testing_errr")
+  # names(TESTdf) <- "alternative"
+  # LOCAL_alternatives <- rbind(LOCAL_alternatives, TESTdf)
+  # 
+  # TESTdf<-data.frame("testing_qwqwerwdf")
+  # names(TESTdf) <- "alternative"
+  # LOCAL_alternatives <- rbind(LOCAL_alternatives, TESTdf)
+  # 
+  # TESTdf<-data.frame("Res_Ftpk2_SpawnCue_20190523")
+  # names(TESTdf) <- "alternative"
+  # LOCAL_alternatives <- rbind(LOCAL_alternatives, TESTdf)
   
   # LOCAL_alts_list <- LOCAL_alternatives$alternative
   LOCAL_alts_list <- as.character(LOCAL_alternatives$alternative)
@@ -116,7 +109,6 @@ PushToPSQL_v2 <- function(df, save_tables_flag, DB_selected) {
   
   # QUERY USING THE STRING to see if any of the LOCAL_alternatives exist in the DB (return all LOCAL_alternatives that are in the DB)
   DB_alternatives <- dbGetQuery(connection, paste0("SELECT alternative FROM alternatives WHERE alternative IN (", LOCAL_alts_list, ")"))
-  
   
   # Which of the LOCAL_alternativeas is in the DB?
   db_matches <- match(DB_alternatives$alternative, LOCAL_alternatives$alternative)
@@ -127,43 +119,29 @@ PushToPSQL_v2 <- function(df, save_tables_flag, DB_selected) {
   # Check if there are any remaining LOCAL_alternatives, insert them in the DB
   num_insert <- length(to_insert[[1]])
   
-  if (num_insert > 0) {
-    dbWriteTable(
-      connection,
-      "alternatives",
-      to_insert,
-      row.names = FALSE,
-      append = TRUE,
-      overwrite = FALSE
-    ) # to protect current values
-    
-    message(
-      c(
-        length(LOCAL_alternatives$alternative),
-        " ALTERNATIVES in df, ",
-        length(db_matches),
-        " duplicates, ",
-        num_insert,
-        " inserted in DB"
-      )
-    )
-    
-  } else {
-    message(
-      c(
-        length(LOCAL_alternatives$alternative),
-        " ALTERNATIVES in df, ",
-        length(db_matches),
-        " duplicates, ",
-        num_insert,
-        " inserted in DB"
-      )
-    )
-  }
+  # Rearrange the data as needed for the insert query
+  to_insert <- as.character(to_insert$alternative)
+  to_insert <- paste0("('", paste(to_insert, collapse='\'),(\''), "')")
   
-  # ***********************
-  DB_alternatives_after <- dbReadTable(connection, "alternatives")
-  # ***********************
+  if (num_insert > 0) {
+    DB_alternatives_inserted <- dbGetQuery(connection, paste0("INSERT INTO alternatives (alternative) VALUES ", to_insert, " RETURNING id, alternative;"))
+  } 
+  
+  message(
+    c(
+      length(LOCAL_alternatives$alternative),
+      " ALTERNATIVES in df, ",
+      length(db_matches),
+      " duplicates, ",
+      num_insert,
+      " inserted in DB"
+    )
+  )
+  
+  
+  # # ***********************
+  # DB_alternatives_after <- dbReadTable(connection, "alternatives")
+  # # ***********************
   
   
 
@@ -591,13 +569,13 @@ PushToPSQL_v2 <- function(df, save_tables_flag, DB_selected) {
   ## Build YEAR_DATES table
   ## -----------------------
   
-  # Check if the 'year_dates' table exists and has 29930 entries. If it does, skip this step.
+  # Check if the 'year_dates' table exists and has 365 entries. If it does, skip this step.
   
   DB_year_dates_count <-
-    dbGetQuery(connection, "SELECT COUNT(DISTINCT date) FROM year_dates")
+    dbGetQuery(connection, "SELECT COUNT(DISTINCT id) FROM year_dates")
   
-  if ((DB_year_dates_count < 29930) && (DB_year_dates_count > 0)) {
-    message("Possible DB error - less than 29930 year_dates in the 'year_dates' table")
+  if ((DB_year_dates_count < 365) && (DB_year_dates_count > 0)) {
+    message("Possible DB error - less than 365 year_dates in the 'year_dates' table")
     
   } else if (DB_year_dates_count == 0) {
     
@@ -605,7 +583,7 @@ PushToPSQL_v2 <- function(df, save_tables_flag, DB_selected) {
     # Get data from the df
     
     # Prep one year of dates to insert in DB
-    one_year <- df[year(df$date) == 1931, ]$date
+    one_year <- df[lubridate::year(df$date) == 1931, ]$date
     LOCAL_year_dates <- data.frame(id = 1:365)
     LOCAL_year_dates$month_name <- months(unique(one_year))
     LOCAL_year_dates$month <-
@@ -615,6 +593,13 @@ PushToPSQL_v2 <- function(df, save_tables_flag, DB_selected) {
     LOCAL_year_dates_list <- as.character(LOCAL_year_dates$date)
     LOCAL_year_dates_list <-
       paste0('\'', paste(LOCAL_year_dates_list, collapse = '\',\''), '\'')
+    
+    
+    
+    # CHANGE THIS - Don't need to pull year_dates from the DB and compare since we've checked whether we have 365 or 0 dates in the DB.
+    # If 0 dates, then just push the data to the DB. if 365, skip. If between 0 and 365, sends error message
+    
+    
     
     # QUERY USING THE STRING to see if any of the LOCAL_year_dates exist in the DB (return all LOCAL_year_dates that are in the DB)
     DB_year_dates <-
@@ -679,7 +664,7 @@ PushToPSQL_v2 <- function(df, save_tables_flag, DB_selected) {
   
   
   # Prep one year of dates to insert in DB
-  one_year <- df[year(df$date) == 1931, ]$date
+  one_year <- df[lubridate::year(df$date) == 1931, ]$date
   LOCAL_year_dates <- data.frame(id = 1:365)
   LOCAL_year_dates$month_name <- months(unique(one_year))
   LOCAL_year_dates$month <-
