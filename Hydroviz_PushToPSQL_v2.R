@@ -124,6 +124,7 @@ PushToPSQL <- function(df, DB_selected) {
   LOCAL_data_summary[1, "river"] <- as.character(df$river[1])
   LOCAL_data_summary[1, "location"] <- as.character(df$location[1])
   
+  # message("LOCAL_data_summary: ", paste(LOCAL_data_summary[1, 1], LOCAL_data_summary[1, 2], LOCAL_data_summary[1, 3], LOCAL_data_summary[1, 4], LOCAL_data_summary[1, 5]))
   
   ## --------------------------
   ## 1. Check ALTERNATIVE in DB
@@ -154,6 +155,8 @@ PushToPSQL <- function(df, DB_selected) {
         )
       )
     
+    message("Inserted ALTERNATIVE into DB: ", paste(returned_id[1,1], "-", returned_id[1,2]))
+
     # Add the id to LOCAL_data_bridge
     LOCAL_data_bridge[1, "alt_id"] <- returned_id$id
     
@@ -192,6 +195,8 @@ PushToPSQL <- function(df, DB_selected) {
           "') RETURNING id, type;"
         )
       )
+    
+    message("Inserted TYPE into DB: ", paste(returned_id[1,1], "-", returned_id[1,2]))
     
     # Add the id to LOCAL_data_bridge
     LOCAL_data_bridge[1, "type_id"] <- returned_id$id
@@ -232,6 +237,8 @@ PushToPSQL <- function(df, DB_selected) {
         )
       )
     
+    message("Inserted SOURCE into DB: ", paste(returned_id[1,1], "-", returned_id[1,2]))
+    
     # Add the id to LOCAL_data_bridge
     LOCAL_data_bridge[1, "source_id"] <- returned_id$id
     
@@ -270,6 +277,8 @@ PushToPSQL <- function(df, DB_selected) {
         )
       )
     
+    message("Inserted RIVER into DB: ", paste(returned_id[1,1], "-", returned_id[1,2]))
+    
     # Add the id to LOCAL_data_bridge
     LOCAL_data_bridge[1, "river_id"] <- returned_id$id
     
@@ -277,6 +286,7 @@ PushToPSQL <- function(df, DB_selected) {
     # Add the id from the SELECT query to LOCAL_data_bridge
     LOCAL_data_bridge[1, "river_id"] <- DB_river$id
   }
+  
   
   ## -----------------------
   ## 5. Check LOCATION in DB
@@ -307,6 +317,8 @@ PushToPSQL <- function(df, DB_selected) {
         )
       )
     
+    message("Inserted LOCATION into DB: ", paste(returned_id[1,1], "-", returned_id[1,2]))
+    
     # Add the id to LOCAL_data_bridge
     LOCAL_data_bridge[1, "location_id"] <- returned_id$id
     
@@ -316,68 +328,10 @@ PushToPSQL <- function(df, DB_selected) {
   }
   
   
-  
-  
-  
-  
   ## -----------------------
-  ## Process remaining data and insert it into the DB
+  ## Calculate data_bridge code
   ## -----------------------
   
-  if (LOCAL_data_bridge[1, 'dataset_is_new'] == FALSE) {
-    message('Dataset already exists in the DB - Nothing inserted')
-  } else {
-    # CONTINUE PROCESSING DATA TO INSERT INTO THE DB
-  }
-  
-  
-  
-  
-  
-
-  
-  DB_source <-
-    dbGetQuery(
-      connection,
-      paste0(
-        "SELECT id, source FROM sources WHERE source = '",
-        LOCAL_data_summary[1, "source"] ,
-        "'"
-      )
-    )
-  
-  DB_river <-
-    dbGetQuery(
-      connection,
-      paste0(
-        "SELECT id, river FROM rivers WHERE river = '",
-        LOCAL_data_summary[1, "river"] ,
-        "'"
-      )
-    )
-  
-  DB_location <-
-    dbGetQuery(
-      connection,
-      paste0(
-        "SELECT id, location FROM locations WHERE location = '",
-        LOCAL_data_summary[1, "location"] ,
-        "'"
-      )
-    )
-  
-  
-  # If all of the fields are already in the DB, then skip processing of data, don't insert, send message that it is already in there
-  
-  
-  
-  #
-  LOCAL_data_bridge[1, "alt_id"] <- as.character(DB_alternative$id)
-  LOCAL_data_bridge[1, "type_id"] <- as.character(DB_type$id)
-  LOCAL_data_bridge[1, "source_id"] <- as.character(DB_source$id)
-  LOCAL_data_bridge[1, "river_id"] <- as.character(DB_river$id)
-  LOCAL_data_bridge[1, "location_id"] <-
-    as.character(DB_location$id)
   LOCAL_data_bridge[1, "code"] <-
     paste(
       LOCAL_data_bridge[1, 1],
@@ -391,7 +345,56 @@ PushToPSQL <- function(df, DB_selected) {
   
   
   
+  ## -----------------------
+  ## PROCESS REMAINING DATA AND INSERT INTO DB
+  ## -----------------------
   
+  if (LOCAL_data_bridge[1, 'dataset_is_new'] == FALSE) {
+    # If all of the fields are already in the DB, then skip processing of data, don't insert, send message that it is already in there
+    
+    message('Dataset already exists in the DB - Nothing inserted')
+    
+  } else {
+    # CONTINUE PROCESSING DATA TO INSERT INTO THE DB
+    # 
+    # LOCAL_data_bridge[1, "alt_id"] <- as.character(DB_alternative$id)
+    # LOCAL_data_bridge[1, "type_id"] <- as.character(DB_type$id)
+    # LOCAL_data_bridge[1, "source_id"] <- as.character(DB_source$id)
+    # LOCAL_data_bridge[1, "river_id"] <- as.character(DB_river$id)
+    # LOCAL_data_bridge[1, "location_id"] <-
+    #   as.character(DB_location$id)
+    
+
+    
+    # -----------------------
+    # Insert data_bridge into DB
+    # -----------------------
+    
+    returned_id <-
+      dbGetQuery(
+        connection,
+        paste0(
+          "INSERT INTO data_bridge (alternative_id, type_id, source_id, river_id, location_id, code) VALUES (",
+          paste(LOCAL_data_bridge[1,1], LOCAL_data_bridge[1,2], LOCAL_data_bridge[1,3], LOCAL_data_bridge[1,4], LOCAL_data_bridge[1,5], sep=","), ", '", LOCAL_data_bridge[1,6], "'",
+          ") RETURNING id;"
+        )
+      )
+    
+    message("Inserted DATA_BRIDGE into DB: id - ", paste(returned_id[1,1], ", CODE -", LOCAL_data_bridge[1,6]))
+    
+    
+    
+    
+    
+  }
+  
+  
+  
+  
+  
+  
+  
+ 
   
   
   
