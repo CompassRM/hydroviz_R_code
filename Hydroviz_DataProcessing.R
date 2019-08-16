@@ -4,15 +4,11 @@
 # source("Hydroviz_PushToPSQL_v2.R")
 
 ProcessHydrovizData <- function () {
-  # SAVE TABLES?  KEEP THIS AS 'no' UNLESS DEBUGGING
-  save_tables <- "no"
-  
   # NOTE - must set the working directory to the directory where this R file is run from! E.g.:
   # setwd("~/Box/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code")
   setwd("~/Box Sync/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code")
   
-  # Source files / functions
-  source("Hydroviz_PushToPSQL.R")
+  
   
   # # This will set the working path to the path of this file
   # this.dir <- dirname(parent.frame(2)$ofile)
@@ -23,6 +19,12 @@ ProcessHydrovizData <- function () {
   cat("\014")
   while (dev.cur() > 1)
     dev.off()
+  
+  # Source files / functions
+  source("Hydroviz_PushToPSQL_v2.R")
+  
+  # Set flags
+  save_processed_data = FALSE
   
   # Check for packages - install if necessary
   if (!"openxlsx" %in% rownames(installed.packages())) {
@@ -51,6 +53,7 @@ ProcessHydrovizData <- function () {
   
   # Declare global variables
   rawData <- data.frame()
+  ALL_processed_data <- list()
   
   # Choose file and get path
   process_all <-
@@ -64,7 +67,7 @@ ProcessHydrovizData <- function () {
       getwd(),
       "Please select a file",
       multiple = FALSE,
-      filters = dlg_filters["All",],
+      filters = dlg_filters["All", ],
       gui = .GUI
     )$res
   
@@ -124,25 +127,11 @@ ProcessHydrovizData <- function () {
     }
   }
   
-  # message("DB ROUTINE OUTPUTS")
-  # message("insert_into_DB: ", insert_into_DB)
-  # message("DB_temp: ", DB_temp)
-  # message("DB_confirm: ", DB_confirm)
-  # message("DB_selected: ", DB_selected)
-  # message("cancel_DB: ", cancel_DB)
-  
-  ## -----------------------------
   
   
   
   
-  
-  
-  
-  #
-  # save_tables <-
-  #   dlg_message("Would you like to export the data tables in a list for debugging?",
-  #               "yesno")$res
+  ## START PROCESSING DATA
   
   processing_start <- Sys.time()
   
@@ -186,9 +175,8 @@ ProcessHydrovizData <- function () {
     start_time <- Sys.time() # Start timing the loop
     
     # Declare/clear variables
-    df_ALL <- data.frame()
     df_column <- data.frame()
-    
+
     # Get current file name and path
     file_name <- file_names[i]
     file_path <- paste(file_path_no_filename, file_name, sep = '/')
@@ -217,11 +205,10 @@ ProcessHydrovizData <- function () {
     } else
       message ("FILE TYPE NOT SUPPORTED!")
     
-    
     end_time <- Sys.time()
     elapsed_time <- difftime(end_time, start_time, units = "secs")
     
-    # message("Time to read the file: ", round(elapsed_time[[1]], 2), " seconds")
+    message("Time to read the file: ", round(elapsed_time[[1]], 2), " seconds")
     
     
     ## -------------------------------------------------
@@ -232,27 +219,33 @@ ProcessHydrovizData <- function () {
     # *** Make this more robust ***
     meta_rows = 7 # CHECK THE ASSUMPTION THAT THE DATA WILL BE IN THE SAME FORMAT EVERY TIME!
     
-    pb <-
-      txtProgressBar(
-        min = 1,
-        max = length(names(rawData)),
-        initial = 1,
-        char = "=",
-        width = NA,
-        "title",
-        "label",
-        style = 3,
-        file = ""
-      )
+    # pb <-
+    #   txtProgressBar(
+    #     min = 1,
+    #     max = length(names(rawData)),
+    #     initial = 1,
+    #     char = "=",
+    #     width = NA,
+    #     "title",
+    #     "label",
+    #     style = 3,
+    #     file = ""
+    #   )
     
-    ## RESHAPE DATA
+    ## RESHAPE AND INSERT DATA
     for (j in 1:length(names(rawData)))
     {
-      setTxtProgressBar(pb, j)
+      # setTxtProgressBar(pb, j)
       
       # Ignore the first two columns (j = 1, 2)
       if (j >= 3)
       {
+        # RESHAPE THE DATA
+        
+        # Declare/clear variables
+        df_column <- data.frame()
+        df_final <- data.frame()
+        
         # Get metadata
         # message(c("Processing Data Column ", j - 2, " of ", length(names(rawData)) -
         #             2))
@@ -306,61 +299,78 @@ ProcessHydrovizData <- function () {
         
         # Add alternative to the dataframe
         df_column <- rbind(df_column, tempValues)
+        
+        
+        # REORGANIZE THE DATA
+        
+        # Update the rownames - should be numbered from 1:nrow(df_column)
+        rownames(df_column) <- seq(length = nrow(df_column))
+        
+        # Reorder columns
+        df_reordered <-
+          df_column[c(
+            "id",
+            "alternative",
+            "type",
+            "source",
+            "river",
+            "location",
+            "date",
+            "value",
+            "units",
+            "measure",
+            "EMPTY"
+          )]
+        
+        # Fix date format
+        
+        if (typeof(df_reordered[1, "date"]) == "character") {
+          # If date is type character, need to convert to numeric first
+          df_reordered[, "date"] <-
+            as.numeric(df_reordered[, "date"])
+        }
+        
+        df_reordered[, "date"] <-
+          as.Date(df_reordered[, "date"] , origin = "1899-12-30")
+        
+        ## REMOVE LEAP DAYS AND 1930 (INCOMPLETE YEAR)
+        df_no1930 <-
+          df_reordered[lubridate::year(df_reordered$date) != 1930,]
+        df_final <-
+          df_no1930[!(lubridate::month(df_no1930$date) == 2 &
+                        lubridate::day(df_no1930$date) == 29),]
+        
+        df_final$location <- as.character(df_final$location)
+        
+        # Renumber ID column
+        rownames(df_final) <- seq(length = nrow(df_final))
+        df_final$id <- rownames(df_final)
+        
+        # Convert EMPTY value fields to NaN for Postgres
+        
+        df_final$value[is.na(df_final$value)] <- NaN
+        
+        
+        # Add the processed column of data from rawData to processed_data_list
+        if (save_processed_data) {
+          ALL_processed_data <- c(ALL_processed_data, list(df_final))
+        }
+        
+        # NOTE - this only packages the data for the columns in the current xlsx file
+        # Doesn't package data for all xlsx files
+        
+        # # Bind it to df_ALL
+        # df_ALL <- rbind(df_ALL, df_final)
+        
+        ## INSERT DATA IN DB
+        if (insert_into_DB == "yes") {
+          PushToPSQL(df_final, DB_selected)
+          # message(c("Finished processing '", file_name, "'. " ,i, "/", length(file_names), " files processed"))
+        }
+        
       }
-      close(pb)
+      # close(pb)
     }
-    
-    
-    
-    # Update the rownames - should be numbered from 1:nrow(df_column)
-    rownames(df_column) <- seq(length = nrow(df_column))
-    
-    # Reorder columns
-    df_reordered <-
-      df_column[c(
-        "id",
-        "alternative",
-        "type",
-        "source",
-        "river",
-        "location",
-        "date",
-        "value",
-        "units",
-        "measure",
-        "EMPTY"
-      )]
-    
-    # Fix date format
-    
-    if (typeof(df_reordered[1, "date"]) == "character") {
-      # If date is type character, need to convert to numeric first
-      df_reordered[, "date"] <- as.numeric(df_reordered[, "date"])
-    }
-    
-    df_reordered[, "date"] <-
-      as.Date(df_reordered[, "date"] , origin = "1899-12-30")
-    
-    ## REMOVE LEAP DAYS AND 1930 (INCOMPLETE YEAR)
-    df_no1930 <-
-      df_reordered[lubridate::year(df_reordered$date) != 1930, ]
-    df_final <-
-      df_no1930[!(lubridate::month(df_no1930$date) == 2 &
-                    lubridate::day(df_no1930$date) == 29), ]
-    
-    df_final$location <- as.character(df_final$location)
-    
-    # Renumber ID column
-    rownames(df_final) <- seq(length = nrow(df_final))
-    df_final$id <- rownames(df_final)
-    
-    # Convert EMPTY value fields to NaN for Postgres
-    
-    df_final$value[is.na(df_final$value)] <- NaN
-    
-    
-    # Bind it to df_ALL
-    df_ALL <- rbind(df_ALL, df_final)
     
     end_time <- Sys.time()
     elapsed_time <-
@@ -382,14 +392,6 @@ ProcessHydrovizData <- function () {
       )
     )
     message("-----------------------------")
-    
-    
-    ## INSERT in DB
-    if (insert_into_DB == "yes") {
-      PushToPSQL(df_ALL, save_tables, DB_selected)
-      # message(c("Finished processing '", file_name, "'. " ,i, "/", length(file_names), " files processed"))
-    }
-    
   }
   
   
