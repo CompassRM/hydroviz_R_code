@@ -4,13 +4,13 @@
 PushToPSQL <- function(df, DB_selected) {
   message(
     "IN PushToPSQL. First row of df_final: ",
-    df[1, ]$alternative,
+    df[1,]$alternative,
     " ",
-    df[1, ]$type,
+    df[1,]$type,
     " ",
-    df[1, ]$river,
+    df[1,]$river,
     " ",
-    df[1, ]$location
+    df[1,]$location
   )
   
   # setwd("~/Box Sync/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code")
@@ -361,7 +361,7 @@ PushToPSQL <- function(df, DB_selected) {
     
   } else {
     # CONTINUE PROCESSING DATA TO INSERT INTO THE DB
-
+    
     # -----------------------
     # Insert data_bridge into DB
     # -----------------------
@@ -397,14 +397,15 @@ PushToPSQL <- function(df, DB_selected) {
     ## -----------------------
     
     # Check if the 'months' table exists. If it does, skip this step.
-    DB_months <-
-      dbGetQuery(connection, "SELECT month_name FROM months")
+    DB_months_count <-
+      dbGetQuery(connection, "SELECT COUNT(month_name) FROM months")
     
-    if ((nrow(DB_months) < 12) && (nrow(DB_months) > 0)) {
+    if ((DB_months_count < 12) && (DB_months_count > 0)) {
       message("Possible DB error - less than 12 months in the 'months' table")
       
-    } else if (nrow(DB_months) == 0) {
+    } else if (DB_months_count == 0) {
       # INSERT INTO DB
+      # Assuming that the current dataset has all 12 months, so don't need to verify that it does, just insert it
       
       # Get data from the df
       distinctDates <- data.frame(dplyr::distinct(df, date))
@@ -431,173 +432,87 @@ PushToPSQL <- function(df, DB_selected) {
     }
     
     
-  
     
-  }
-  
-  
-  
-  
-  
-  
-  
-  ## -----------------------
-  ## Build MODELED_DATES table
-  ## -----------------------
-  
-  # Check if the 'modeled_dates' table exists and has 29930 entries. If it does, skip this step.
-  
-  DB_modeled_dates_count <-
-    dbGetQuery(connection, "SELECT COUNT(DISTINCT date) FROM modeled_dates")
-  
-  if ((DB_modeled_dates_count < 29930) &&
-      (DB_modeled_dates_count > 0)) {
-    message("Possible DB error - less than 29930 modeled_dates in the 'modeled_dates' table")
+    ## -----------------------
+    ## Build MODELED_DATES table
+    ## -----------------------
     
-  } else if (DB_modeled_dates_count == 0) {
-    # INSERT INTO DB
-    # Get data from the df
+    # Check if the 'modeled_dates' table exists and has 29930 entries. If it does, skip this step.
     
-    LOCAL_modeled_dates <- data.frame(dplyr::distinct(df, date))
+    DB_modeled_dates_count <-
+      dbGetQuery(connection,
+                 "SELECT COUNT(DISTINCT date) FROM modeled_dates")
     
-    LOCAL_modeled_dates$year <-
-      lubridate::year(LOCAL_modeled_dates$date)
-    LOCAL_modeled_dates$month <-
-      lubridate::month(LOCAL_modeled_dates$date)
-    LOCAL_modeled_dates$day <-
-      lubridate::day(LOCAL_modeled_dates$date)
-    
-    LOCAL_modeled_dates_list <-
-      as.character(LOCAL_modeled_dates$date)
-    LOCAL_modeled_dates_list <-
-      paste0('\'',
-             paste(LOCAL_modeled_dates_list, collapse = '\',\''),
-             '\'')
-    
-    # QUERY USING THE STRING to see if any of the LOCAL_modeled_dates exist in the DB (return all LOCAL_modeled_dates that are in the DB)
-    DB_modeled_dates <-
-      dbGetQuery(
-        connection,
-        paste0(
-          "SELECT date FROM modeled_dates WHERE date IN (",
-          LOCAL_modeled_dates_list,
-          ")"
-        )
-      )
-    
-    # Which of the LOCAL_modeled_dates is in the DB?
-    db_matches <-
-      match(DB_modeled_dates$date, LOCAL_modeled_dates$date)
-    db_matches <- db_matches[complete.cases(db_matches)]
-    
-    # From LOCAL_sources, remove all of those that are in the DB to get just those to be inserted
-    to_insert <- LOCAL_modeled_dates[-c(db_matches), , drop = F]
-    to_insert$date <-
-      as.character(to_insert$date) # Change date to character to put in DB
-    
-    # Check if there are any remaining LOCAL_alternatives, insert them in the DB
-    num_insert <- length(to_insert[[1]])
-    
-    if (num_insert > 0) {
+    if ((DB_modeled_dates_count < 29930) &&
+        (DB_modeled_dates_count > 0)) {
+      message("Possible DB error - less than 29930 modeled_dates in the 'modeled_dates' table")
+      
+    } else if (DB_modeled_dates_count == 0) {
+      # INSERT INTO DB
+      # Get data from the df
+      # Assuming that the current dataset has all 29930 modeled_dates, so don't need to verify that it does, just insert it
+      
+      LOCAL_modeled_dates <- data.frame(dplyr::distinct(df, date))
+      
+      LOCAL_modeled_dates$year <-
+        lubridate::year(LOCAL_modeled_dates$date)
+      LOCAL_modeled_dates$month <-
+        lubridate::month(LOCAL_modeled_dates$date)
+      LOCAL_modeled_dates$day <-
+        lubridate::day(LOCAL_modeled_dates$date)
+      
+      LOCAL_modeled_dates_list <-
+        as.character(LOCAL_modeled_dates$date)
+      LOCAL_modeled_dates_list <-
+        paste0('\'',
+               paste(LOCAL_modeled_dates_list, collapse = '\',\''),
+               '\'')
+      
       dbWriteTable(
         connection,
         "modeled_dates",
-        to_insert,
+        LOCAL_modeled_dates_list,
         row.names = FALSE,
         append = TRUE,
-        overwrite = FALSE
-      ) # to protect current values
-      
-      message(
-        c(
-          length(LOCAL_modeled_dates$month),
-          " MODELED_DATES in df, ",
-          length(db_matches),
-          " duplicates, ",
-          num_insert,
-          " inserted in DB"
-        )
+        overwrite = FALSE # to protect current values
       )
+      
+      message("Modeled_dates inserted into DB in 'modeled_dates' table")
       
     } else {
-      message(
-        c(
-          length(LOCAL_modeled_dates$month),
-          " MODELED_DATES in df, ",
-          length(db_matches),
-          " duplicates, ",
-          num_insert,
-          " inserted in DB"
-        )
-      )
+      message("Modeled_dates table already in DB - nothing added")
     }
     
-  } else {
-    message("Modeled_dates table already in DB - nothing added")
-  }
-  
-  
-  ## -----------------------
-  ## Build YEAR_DATES table
-  ## -----------------------
-  
-  # Check if the 'year_dates' table exists and has 365 entries. If it does, skip this step.
-  
-  DB_year_dates_count <-
-    dbGetQuery(connection, "SELECT COUNT(DISTINCT id) FROM year_dates")
-  
-  if ((DB_year_dates_count < 365) && (DB_year_dates_count > 0)) {
-    message("Possible DB error - less than 365 year_dates in the 'year_dates' table")
-    
-  } else if (DB_year_dates_count == 0) {
-    # INSERT INTO DB
-    # Get data from the df
-    
-    # Prep one year of dates to insert in DB
-    one_year <- df[lubridate::year(df$date) == 1931,]$date
-    LOCAL_year_dates <- data.frame(id = 1:365)
-    LOCAL_year_dates$month_name <- months(unique(one_year))
-    LOCAL_year_dates$month <-
-      as.integer(format(unique(one_year), "%m"))
-    LOCAL_year_dates$day <- lubridate::day(unique(one_year))
-    
-    LOCAL_year_dates_list <- as.character(LOCAL_year_dates$date)
-    LOCAL_year_dates_list <-
-      paste0('\'',
-             paste(LOCAL_year_dates_list, collapse = '\',\''),
-             '\'')
     
     
     
-    # CHANGE THIS - Don't need to pull year_dates from the DB and compare since we've checked whether we have 365 or 0 dates in the DB.
-    # If 0 dates, then just push the data to the DB. if 365, skip. If between 0 and 365, sends error message
     
+    ## -----------------------
+    ## Build YEAR_DATES table
+    ## -----------------------
     
+    # Check if the 'year_dates' table exists and has 365 entries. If it does, skip this step.
     
-    # QUERY USING THE STRING to see if any of the LOCAL_year_dates exist in the DB (return all LOCAL_year_dates that are in the DB)
-    DB_year_dates <-
-      dbGetQuery(
-        connection,
-        paste0(
-          "SELECT date FROM year_dates WHERE date IN (",
-          LOCAL_year_dates_list,
-          ")"
-        )
-      )
+    DB_year_dates_count <-
+      dbGetQuery(connection, "SELECT COUNT(DISTINCT id) FROM year_dates")
     
-    # Which of the LOCAL_year_dates is in the DB?
-    db_matches <- match(DB_year_dates$date, LOCAL_year_dates$date)
-    db_matches <- db_matches[complete.cases(db_matches)]
-    
-    # From LOCAL_sources, remove all of those that are in the DB to get just those to be inserted
-    to_insert <- LOCAL_year_dates[-c(db_matches), , drop = F]
-    to_insert$date <-
-      as.character(to_insert$date) # Change date to character to put in DB
-    
-    # Check if there are any remaining LOCAL_alternatives, insert them in the DB
-    num_insert <- length(to_insert[[1]])
-    
-    if (num_insert > 0) {
+    if ((DB_year_dates_count < 365) && (DB_year_dates_count > 0)) {
+      message("Possible DB error - less than 365 year_dates in the 'year_dates' table")
+      
+    } else if (DB_year_dates_count == 0) {
+      # INSERT INTO DB
+      # Assuming that the current dataset has all 365 year_dates, so don't need to verify that it does, just insert it
+      
+      # Prep one year of dates to insert in DB
+      one_year <- df[lubridate::year(df$date) == 1931, ]$date
+      LOCAL_year_dates <- data.frame(id = 1:365)
+      LOCAL_year_dates$month_name <- months(unique(one_year))
+      LOCAL_year_dates$month <-
+        as.integer(format(unique(one_year), "%m"))
+      LOCAL_year_dates$day <- lubridate::day(unique(one_year))
+      
+      to_insert <- LOCAL_year_dates[, 2:4]
+      
       dbWriteTable(
         connection,
         "year_dates",
@@ -607,32 +522,23 @@ PushToPSQL <- function(df, DB_selected) {
         overwrite = FALSE
       ) # to protect current values
       
-      message(
-        c(
-          length(LOCAL_year_dates$month),
-          " year_dates in df, ",
-          length(db_matches),
-          " duplicates, ",
-          num_insert,
-          " inserted in DB"
-        )
-      )
+      message("Year_dates inserted into DB in 'modeled_dates' table")
+      
       
     } else {
-      message(
-        c(
-          length(LOCAL_year_dates$month),
-          " year_dates in df, ",
-          length(db_matches),
-          " duplicates, ",
-          num_insert,
-          " inserted in DB"
-        )
-      )
+      message("year_dates table already in DB - nothing added")
     }
     
-  } else {
-    message("year_dates table already in DB - nothing added")
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    ## END OF LOOP TRIGGERED IF data_bridge ISN'T IN THE DB
   }
   
   
@@ -640,60 +546,16 @@ PushToPSQL <- function(df, DB_selected) {
   
   
   
-  # Prep one year of dates to insert in DB
-  one_year <- df[lubridate::year(df$date) == 1931,]$date
-  LOCAL_year_dates <- data.frame(id = 1:365)
-  LOCAL_year_dates$month_name <- months(unique(one_year))
-  LOCAL_year_dates$month <-
-    as.integer(format(unique(one_year), "%m"))
-  LOCAL_year_dates$day <- lubridate::day(unique(one_year))
   
-  # 1 - query the table to see which values exist in the DB compared to my dataframe
-  DB_year_dates <- dbReadTable(connection, "year_dates")
   
-  # 2 - remove existing values from the dataframe
-  db_matches <-
-    match(as.character(LOCAL_year_dates$id), DB_year_dates$id)
-  num_df <- length(LOCAL_year_dates$id)
   
-  to_insert <- filter(LOCAL_year_dates, is.na(db_matches))
-  YEAR_DATES_inserted <- to_insert
-  num_insert <- length(to_insert[[1]])
-  num_dups <- num_df - num_insert
   
-  # 3 - dbWriteTable to append the new values
   
-  if (num_insert > 0) {
-    RPostgreSQL::dbWriteTable(
-      connection,
-      "year_dates",
-      to_insert,
-      row.names = FALSE,
-      append = TRUE,
-      overwrite = FALSE
-    )
-    message(
-      c(
-        num_df,
-        " YEAR_DATES in df, ",
-        num_dups,
-        " duplicates, ",
-        num_insert,
-        " inserted in DB"
-      )
-    )
-  } else {
-    message(
-      c(
-        num_df,
-        " YEAR_DATES in df, ",
-        num_dups,
-        " duplicates, ",
-        num_insert,
-        " inserted in DB"
-      )
-    )
-  }
+  
+  
+  
+  
+  
   
   
   
