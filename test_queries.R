@@ -1,3 +1,14 @@
+# This works as well.. using ODBC instead of RPostgreSQL package
+# connection <- dbConnect(
+#   odbc(),
+#   Driver = "PostgreSQL Driver",
+#   Server = Sys.getenv("testhost"),
+#   Database = Sys.getenv("dbnametest"),
+#   Port = Sys.getenv("port"),
+#   Uid = Sys.getenv("user"),
+#   Pwd = Sys.getenv("password")
+# )
+
 
 # dbGetQuery(connection, "SELECT * FROM alternatives WHERE alternative IN ('RAS_ALT3A_MECH_20170825','Res_Ftpk2_SpawnCue_20190523')")
 # dbGetQuery(connection, "SELECT * FROM alternatives WHERE alternative = 'RAS_ALT3A_MECH_20170825'")
