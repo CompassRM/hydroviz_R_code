@@ -187,7 +187,6 @@ ProcessHydrovizData <- function () {
     start_time <- Sys.time() # Start timing the loop
     
     # Declare/clear variables
-    df_LIST <- list()
     df_ALL <- data.frame()
     df_column <- data.frame()
     
@@ -361,10 +360,8 @@ ProcessHydrovizData <- function () {
     df_final$value[is.na(df_final$value)] <- NaN
     
     
-    # Bind it to df_ALL and add it in df_LIST
+    # Bind it to df_ALL
     df_ALL <- rbind(df_ALL, df_final)
-    df_LIST[[i]] <-
-      df_final  # For debugging purposes only - comment out or delete
     
     end_time <- Sys.time()
     elapsed_time <-
@@ -394,23 +391,6 @@ ProcessHydrovizData <- function () {
       # message(c("Finished processing '", file_name, "'. " ,i, "/", length(file_names), " files processed"))
     }
     
-    # Add the data frames created in this R file to the tables_list for debugging purposes
-    # If tables_list is empty (length=0) when returning from PushToPSQL, that means the user
-    # indicated they did NOT want to export/save those tables. So don't add anything to the tables from here.
-    
-    # NOTE: tables_list$alternatives will access the alternatives dataframe
-    
-    
-    if (length(tables_list) != 0) {
-      message("Adding tables to tables_list")
-      tables_list$df_ALL <- df_ALL
-      tables_list$df_LIST <- df_LIST
-      tables_list$rawData <- rawData
-      tables_list$file_names <- file_names
-    }
-    
-    # CURRENTLY, THIS CODE WITH KEEP ONLY THE DATA FROM THE LAST LOOP.  TOO BIG TO APPEND THE tables_lists.
-    # Change this so that it SAVES the tables to disk (prompt first)
   }
   
   
