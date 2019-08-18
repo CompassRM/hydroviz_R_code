@@ -371,8 +371,14 @@ PushToPSQL <- function(df, DB_selected) {
     
     message('Dataset already exists in the DB - Nothing inserted')
     
+    data_bridge_id <-
+      dbGetQuery(connection, paste0("SELECT id FROM data_bridge WHERE code = '", LOCAL_data_bridge[1, "code"], "'"))
+    
+    LOCAL_data_bridge[1, "data_bridge_id"] <- data_bridge_id
+    
   } else {
     # CONTINUE PROCESSING DATA TO INSERT INTO THE DB
+    
     
     # -----------------------
     # Insert data_bridge into DB
@@ -403,6 +409,12 @@ PushToPSQL <- function(df, DB_selected) {
       paste(returned_id[1, 1], ", CODE -", LOCAL_data_bridge[1, 6])
     )
     
+    LOCAL_data_bridge[1, "data_bridge_id"] <- returned_id[1, 1]
+    
+    # Months_df <-
+    #   dbGetQuery(connection, "SELECT * FROM months")
+    
+    
     
     ## -----------------------
     ## Build MONTHS table
@@ -411,6 +423,7 @@ PushToPSQL <- function(df, DB_selected) {
     # Check if the 'months' table exists. If it does, skip this step.
     DB_months_count <-
       dbGetQuery(connection, "SELECT COUNT(month_name) FROM months")
+
     
     if ((DB_months_count < 12) && (DB_months_count > 0)) {
       message("Possible DB error - less than 12 months in the 'months' table")
@@ -425,22 +438,40 @@ PushToPSQL <- function(df, DB_selected) {
         data.frame(month_name = unique(months(distinctDates$date)))
       
       LOCAL_months_list <- as.character(LOCAL_months$month)
+      # LOCAL_months_list <-
+      #   paste0('\'', paste(LOCAL_months_list, collapse = '\',\''), '\'')
+      # 
       LOCAL_months_list <-
-        paste0('\'', paste(LOCAL_months_list, collapse = '\',\''), '\'')
+        paste0('(\'', paste(LOCAL_months_list, collapse = '\'),(\''), '\')')
       
-      dbWriteTable(
-        connection,
-        "months",
-        LOCAL_months_list,
-        row.names = FALSE,
-        append = TRUE,
-        overwrite = FALSE # to protect current values
-      )
+      
+      # dbWriteTable(
+      #   connection,
+      #   "months",
+      #   LOCAL_months_list,
+      #   row.names = FALSE,
+      #   append = TRUE,
+      #   overwrite = FALSE # to protect current values
+      # )
+      
+      Months_df <-
+        dbGetQuery(
+          connection,
+          paste0(
+            "INSERT INTO months (month_name) VALUES ",
+            LOCAL_months_list,
+            " RETURNING *;"
+          )
+        )
       
       message("Month names inserted into DB in 'months' table")
       
     } else {
       message("Months table already in DB - nothing added")
+      
+      Months_df <-
+        dbGetQuery(connection, "SELECT * FROM months")
+      
     }
     
     
@@ -454,6 +485,7 @@ PushToPSQL <- function(df, DB_selected) {
     DB_modeled_dates_count <-
       dbGetQuery(connection,
                  "SELECT COUNT(DISTINCT date) FROM modeled_dates")
+  
     
     if ((DB_modeled_dates_count < 29930) &&
         (DB_modeled_dates_count > 0)) {
@@ -472,27 +504,46 @@ PushToPSQL <- function(df, DB_selected) {
         lubridate::month(LOCAL_modeled_dates$date)
       LOCAL_modeled_dates$day <-
         lubridate::day(LOCAL_modeled_dates$date)
+      # 
+      # LOCAL_modeled_dates_list <-
+      #   as.character(LOCAL_modeled_dates$date)
+      # 
+      # LOCAL_modeled_dates_list <-
+      #   paste0('\'',
+      #          paste(LOCAL_modeled_dates_list, collapse = '\',\''),
+      #          '\'')
+     
+      to_insert <-
+        paste0("(", paste0("'", LOCAL_modeled_dates$date, "','", LOCAL_modeled_dates$year, "','", LOCAL_modeled_dates$month, "','", LOCAL_modeled_dates$day, "'", collapse= "),("), ")")
       
-      LOCAL_modeled_dates_list <-
-        as.character(LOCAL_modeled_dates$date)
-      LOCAL_modeled_dates_list <-
-        paste0('\'',
-               paste(LOCAL_modeled_dates_list, collapse = '\',\''),
-               '\'')
       
-      dbWriteTable(
-        connection,
-        "modeled_dates",
-        LOCAL_modeled_dates_list,
-        row.names = FALSE,
-        append = TRUE,
-        overwrite = FALSE # to protect current values
-      )
+      # dbWriteTable(
+      #   connection,
+      #   "modeled_dates",
+      #   LOCAL_modeled_dates_list,
+      #   row.names = FALSE,
+      #   append = TRUE,
+      #   overwrite = FALSE # to protect current values
+      # )
+      
+      Modeled_dates_df <-
+        dbGetQuery(
+          connection,
+          paste0(
+            "INSERT INTO modeled_dates (date, year, month, day) VALUES ",
+            to_insert,
+            " RETURNING *;"
+          )
+        )
       
       message("Modeled_dates inserted into DB in 'modeled_dates' table")
       
     } else {
       message("Modeled_dates table already in DB - nothing added")
+      
+      Modeled_dates_df <-
+        dbGetQuery(connection,
+                   "SELECT * FROM modeled_dates")
     }
     
     
@@ -525,33 +576,45 @@ PushToPSQL <- function(df, DB_selected) {
       
       to_insert <- LOCAL_year_dates[, 2:4]
       
-      dbWriteTable(
-        connection,
-        "year_dates",
-        to_insert,
-        row.names = FALSE,
-        append = TRUE,
-        overwrite = FALSE
-      ) # to protect current values
+      to_insert <-
+        paste0("(", paste0("'", LOCAL_year_dates$month_name, "','", LOCAL_year_dates$month, "','", LOCAL_year_dates$day, "'", collapse= "),("), ")")
+      
+      # INSERT INTO DB AND RETURN IDS
+      Year_dates_df <-
+        dbGetQuery(
+          connection,
+          paste0(
+            "INSERT INTO year_dates (month_name, month, day) VALUES ",
+            to_insert,
+            " RETURNING *;"
+          )
+        )
+      
+      # dbWriteTable(
+      #   connection,
+      #   "year_dates",
+      #   to_insert,
+      #   row.names = FALSE,
+      #   append = TRUE,
+      #   overwrite = FALSE
+      # ) # to protect current values
       
       message("Year_dates inserted into DB in 'modeled_dates' table")
       
       
     } else {
       message("year_dates table already in DB - nothing added")
+      
+      # QUERY DB TO GET IDS
+      Year_dates_df <-
+        dbGetQuery(connection,
+                   "SELECT * FROM year_dates")
     }
     
     
     
     
-    # STOPPED HERE **********
-    # STOPPED HERE **********
-    # STOPPED HERE **********
-    
-    # GO THROUGH THE REMAINING CODE AND MAKE IT WORK
-    
-    
-    
+ 
     
     ## -----------------------
     ## Build DATA table
@@ -565,6 +628,67 @@ PushToPSQL <- function(df, DB_selected) {
     message("Processing DATA_TABLE")
     
     data_processing_start <- Sys.time()
+    
+    # data_temp  <- data.frame(
+    #   data_bridge_id = integer(),
+    #   date = character(),
+    #   modeled_dates_id = integer(),
+    #   value = integer(),
+    #   year_dates_id = integer(),
+    #   year = integer(),
+    #   month_num = integer(),
+    #   day_num = integer(),
+    #   stats_id = integer(),
+    #   stringsAsFactors = FALSE
+    # )
+    
+    data_temp <- data.frame(
+      data_bridge_id = LOCAL_data_bridge[1, "data_bridge_id"],
+      date = df[, 'date'],
+      value = df[, 'value']
+      )
+    
+    # Use dplyr to merge based on 'date' - will add modeled_dates_id, year, month_num, day_num
+    # Not sure about how to add year_dates_id yet - just by combo of month and day?
+    
+    # Once data_temp is ready, then calc stats, insert stats and get stats_id, add to data_temp
+    # Then insert data_temp into data table
+    
+    
+    
+    # Process data to add missing columns before inserting into DB
+    # Add year, month, day to data table
+    data_temp$year <-
+      lubridate::year(data_temp$date)
+    data_temp$month_num <-
+      lubridate::month(data_temp$date)
+    data_temp$day_num <-
+      lubridate::day(data_temp$date)
+    
+    # Get id from Year_dates_df where month_num = month, and day_num = day. Add as column to data_temp
+    
+    # Do the same thing to add in modeled dates id from Modeled_dates_df
+    
+    # Create stats_table, insert it, get ids, then add stats_id to data_temp to finalize it
+    # Insert data_temp into the DB
+    
+    
+    
+    
+    # STOPPED HERE **********
+    # STOPPED HERE **********
+    # STOPPED HERE **********
+    
+    # GO THROUGH THE REMAINING CODE AND MAKE IT WORK
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     # Get codes for the data to be inserted
     codes_to_insert <- data_to_insert$code
@@ -714,6 +838,9 @@ PushToPSQL <- function(df, DB_selected) {
       round(elapsed_time[[1]], 2),
       " seconds. "
     ))
+    
+    
+    
     
     
     
