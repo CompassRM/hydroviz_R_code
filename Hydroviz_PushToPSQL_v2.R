@@ -6,6 +6,8 @@ PushToPSQL <- function(df, DB_selected) {
   # INITIALIZE
   ## ---------------------
   
+  message(" ")
+  message("-------------------------------------------------------------------------")
   message(
     "IN PushToPSQL. First row of df_final: ",
     df[1,]$alternative,
@@ -16,6 +18,7 @@ PushToPSQL <- function(df, DB_selected) {
     " ",
     df[1,]$location
   )
+  message("-------------------------------------------------------------------------")
   
   # setwd("~/Box Sync/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code")
   
