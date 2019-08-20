@@ -2,16 +2,19 @@
 # df <- df_ALL
 
 PushToPSQL <- function(df, DB_selected) {
+  ## ---------------------
+  # INITIALIZE
+  ## ---------------------
   
   message(
     "IN PushToPSQL. First row of df_final: ",
-    df[1, ]$alternative,
+    df[1,]$alternative,
     " ",
-    df[1, ]$type,
+    df[1,]$type,
     " ",
-    df[1, ]$river,
+    df[1,]$river,
     " ",
-    df[1, ]$location
+    df[1,]$location
   )
   
   # setwd("~/Box Sync/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code")
@@ -47,12 +50,17 @@ PushToPSQL <- function(df, DB_selected) {
   driver <- dbDriver("PostgreSQL")
   # driver <- dbDriver("odbc")
   
+  
+  
+  ## ---------------------
+  ## CONNECT TO DB
+  ## ---------------------
+  
   # Load environment variables
   load_dot_env(file = ".env") # Loads variables from .env into R environment
   
-  
   # creates a connection to the postgres database
-  if (DB_selected == "Production DB") {
+  if (DB_selected == "Production DB (AWS)") {
     message("**** Inserting into Production DB ****")
     
     # connection <- dbConnect(
@@ -63,9 +71,9 @@ PushToPSQL <- function(df, DB_selected) {
     #   user = Sys.getenv("user"),
     #   password = Sys.getenv("password")
     # )
-    # 
+    #
     
-  } else if (DB_selected == "Testing DB") {
+  } else if (DB_selected == "Testing DB (AWS)") {
     message("**** Inserting into Testing DB ****")
     
     connection <- dbConnect(
@@ -76,20 +84,35 @@ PushToPSQL <- function(df, DB_selected) {
       user = Sys.getenv("user"),
       password = Sys.getenv("password")
     )
+  } else if (DB_selected == "Development DB (local)") {
+    message("**** Inserting into Development DB (local) ****")
+    
+    connection <- dbConnect(
+      driver,
+      dbname = Sys.getenv("dbnamedev"),
+      host = Sys.getenv("devhost"),
+      port = Sys.getenv("portdev"),
+      user = Sys.getenv("userdev"),
+      password = Sys.getenv("passworddev")
+    )
     
   } else {
     message(" DB NAME NOT RECOGNIZED - STOPPING PushToPSQL")
     return()
   }
   
+  ## ---------------------
   
-  
-  
+  ## ---------------------
   message(" ")
   message("-------------------------")
   message("*** INSERTING INTO DB ***")
   message("-------------------------")
   message(" ")
+  
+  ## ---------------------
+  # PREP SUMMARY AND BRIDGE DFs
+  ## ---------------------
   
   # Start timer
   SQL_module_start <- Sys.time()
@@ -187,7 +210,11 @@ PushToPSQL <- function(df, DB_selected) {
       paste0(
         "SELECT * FROM types WHERE type = '",
         LOCAL_data_summary[1, "type"] ,
-        "' AND units = '", LOCAL_units, "' AND measure= '", LOCAL_measure, "'"
+        "' AND units = '",
+        LOCAL_units,
+        "' AND measure= '",
+        LOCAL_measure,
+        "'"
       )
     )
   
@@ -205,7 +232,11 @@ PushToPSQL <- function(df, DB_selected) {
         # )
         paste0(
           "INSERT INTO types (type, units, measure) VALUES ('",
-          LOCAL_data_summary[1, "type"], "', '", LOCAL_units, "','", LOCAL_measure,
+          LOCAL_data_summary[1, "type"],
+          "', '",
+          LOCAL_units,
+          "','",
+          LOCAL_measure,
           "') RETURNING *;"
         )
       )
@@ -347,7 +378,7 @@ PushToPSQL <- function(df, DB_selected) {
   
   
   ## -----------------------
-  ## Calculate data_bridge code
+  ## 6. Calculate data_bridge code
   ## -----------------------
   
   LOCAL_data_bridge[1, "code"] <-
@@ -361,10 +392,8 @@ PushToPSQL <- function(df, DB_selected) {
   
   message("LOCAL_data_bridge: ", LOCAL_data_bridge[1, 6])
   
-  
-  
   ## -----------------------
-  ## PROCESS REMAINING DATA AND INSERT INTO DB
+  ## IF DATASET IS NEW - PROCESS AND INSERT INTO DB
   ## -----------------------
   
   if (LOCAL_data_bridge[1, 'dataset_is_new'] == FALSE) {
@@ -373,14 +402,19 @@ PushToPSQL <- function(df, DB_selected) {
     message('Dataset already exists in the DB - Nothing inserted')
     
     data_bridge_id <-
-      dbGetQuery(connection, paste0("SELECT id FROM data_bridge WHERE code = '", LOCAL_data_bridge[1, "code"], "'"))
+      dbGetQuery(
+        connection,
+        paste0(
+          "SELECT id FROM data_bridge WHERE code = '",
+          LOCAL_data_bridge[1, "code"],
+          "'"
+        )
+      )
     
     LOCAL_data_bridge[1, "data_bridge_id"] <- data_bridge_id
     
   } else {
-    
     # CONTINUE PROCESSING DATA TO INSERT INTO THE DB
-    
     
     # -----------------------
     # Insert data_bridge into DB
@@ -413,19 +447,15 @@ PushToPSQL <- function(df, DB_selected) {
     
     LOCAL_data_bridge[1, "data_bridge_id"] <- returned_id[1, 1]
     
-    # Months_df <-
-    #   dbGetQuery(connection, "SELECT * FROM months")
-    
-    
     
     ## -----------------------
-    ## Build MONTHS table
+    ## Build MONTHS table & INSERT INTO DB
     ## -----------------------
     
     # Check if the 'months' table exists. If it does, skip this step.
     DB_months_count <-
       dbGetQuery(connection, "SELECT COUNT(month_name) FROM months")
-
+    
     
     if ((DB_months_count < 12) && (DB_months_count > 0)) {
       message("Possible DB error - less than 12 months in the 'months' table")
@@ -442,19 +472,11 @@ PushToPSQL <- function(df, DB_selected) {
       LOCAL_months_list <- as.character(LOCAL_months$month)
       # LOCAL_months_list <-
       #   paste0('\'', paste(LOCAL_months_list, collapse = '\',\''), '\'')
-      # 
+      #
       LOCAL_months_list <-
-        paste0('(\'', paste(LOCAL_months_list, collapse = '\'),(\''), '\')')
-      
-      
-      # dbWriteTable(
-      #   connection,
-      #   "months",
-      #   LOCAL_months_list,
-      #   row.names = FALSE,
-      #   append = TRUE,
-      #   overwrite = FALSE # to protect current values
-      # )
+        paste0('(\'',
+               paste(LOCAL_months_list, collapse = '\'),(\''),
+               '\')')
       
       Months_df <-
         dbGetQuery(
@@ -479,7 +501,7 @@ PushToPSQL <- function(df, DB_selected) {
     
     
     ## -----------------------
-    ## Build MODELED_DATES table
+    ## Build MODELED_DATES table & INSERT INTO DB
     ## -----------------------
     
     # Check if the 'modeled_dates' table exists and has 29930 entries. If it does, skip this step.
@@ -487,7 +509,6 @@ PushToPSQL <- function(df, DB_selected) {
     DB_modeled_dates_count <-
       dbGetQuery(connection,
                  "SELECT COUNT(DISTINCT date) FROM modeled_dates")
-  
     
     if ((DB_modeled_dates_count < 29930) &&
         (DB_modeled_dates_count > 0)) {
@@ -506,27 +527,32 @@ PushToPSQL <- function(df, DB_selected) {
         lubridate::month(LOCAL_modeled_dates$date)
       LOCAL_modeled_dates$day <-
         lubridate::day(LOCAL_modeled_dates$date)
-      # 
+      #
       # LOCAL_modeled_dates_list <-
       #   as.character(LOCAL_modeled_dates$date)
-      # 
+      #
       # LOCAL_modeled_dates_list <-
       #   paste0('\'',
       #          paste(LOCAL_modeled_dates_list, collapse = '\',\''),
       #          '\'')
-     
+      
       to_insert <-
-        paste0("(", paste0("'", LOCAL_modeled_dates$date, "','", LOCAL_modeled_dates$year, "','", LOCAL_modeled_dates$month, "','", LOCAL_modeled_dates$day, "'", collapse= "),("), ")")
-      
-      
-      # dbWriteTable(
-      #   connection,
-      #   "modeled_dates",
-      #   LOCAL_modeled_dates_list,
-      #   row.names = FALSE,
-      #   append = TRUE,
-      #   overwrite = FALSE # to protect current values
-      # )
+        paste0(
+          "(",
+          paste0(
+            "'",
+            LOCAL_modeled_dates$date,
+            "','",
+            LOCAL_modeled_dates$year,
+            "','",
+            LOCAL_modeled_dates$month,
+            "','",
+            LOCAL_modeled_dates$day,
+            "'",
+            collapse = "),("
+          ),
+          ")"
+        )
       
       Modeled_dates_df <-
         dbGetQuery(
@@ -549,11 +575,8 @@ PushToPSQL <- function(df, DB_selected) {
     }
     
     
-    
-    
-    
     ## -----------------------
-    ## Build YEAR_DATES table
+    ## Build YEAR_DATES table & INSERT INTO DB
     ## -----------------------
     
     # Check if the 'year_dates' table exists and has 365 entries. If it does, skip this step.
@@ -569,7 +592,7 @@ PushToPSQL <- function(df, DB_selected) {
       # Assuming that the current dataset has all 365 year_dates, so don't need to verify that it does, just insert it
       
       # Prep one year of dates to insert in DB
-      one_year <- df[lubridate::year(df$date) == 1931,]$date
+      one_year <- df[lubridate::year(df$date) == 1931, ]$date
       LOCAL_year_dates <- data.frame(id = 1:365)
       LOCAL_year_dates$month_name <- months(unique(one_year))
       LOCAL_year_dates$month <-
@@ -579,7 +602,20 @@ PushToPSQL <- function(df, DB_selected) {
       to_insert <- LOCAL_year_dates[, 2:4]
       
       to_insert <-
-        paste0("(", paste0("'", LOCAL_year_dates$month_name, "','", LOCAL_year_dates$month, "','", LOCAL_year_dates$day, "'", collapse= "),("), ")")
+        paste0(
+          "(",
+          paste0(
+            "'",
+            LOCAL_year_dates$month_name,
+            "','",
+            LOCAL_year_dates$month,
+            "','",
+            LOCAL_year_dates$day,
+            "'",
+            collapse = "),("
+          ),
+          ")"
+        )
       
       # INSERT INTO DB AND RETURN IDS
       Year_dates_df <-
@@ -592,17 +628,7 @@ PushToPSQL <- function(df, DB_selected) {
           )
         )
       
-      # dbWriteTable(
-      #   connection,
-      #   "year_dates",
-      #   to_insert,
-      #   row.names = FALSE,
-      #   append = TRUE,
-      #   overwrite = FALSE
-      # ) # to protect current values
-      
       message("Year_dates inserted into DB in 'modeled_dates' table")
-      
       
     } else {
       message("year_dates table already in DB - nothing added")
@@ -615,7 +641,7 @@ PushToPSQL <- function(df, DB_selected) {
     
     
     ## -----------------------
-    ## Build DATA table
+    ## Build DATA table & INSERT INTO DB
     ## -----------------------
     
     # NOTE: The data_to_insert dataframe has the codes for the data to be inserted in both
@@ -639,13 +665,11 @@ PushToPSQL <- function(df, DB_selected) {
     #   stats_id = integer(),
     #   stringsAsFactors = FALSE
     # )
-  
     
-    data_temp <- data.frame(
-      data_bridge_id = LOCAL_data_bridge[1, "data_bridge_id"],
-      date = df[, 'date'],
-      value = df[, 'value']
-      )
+    
+    data_temp <- data.frame(data_bridge_id = LOCAL_data_bridge[1, "data_bridge_id"],
+                            date = df[, 'date'],
+                            value = df[, 'value'])
     
     # Process data to add missing columns before inserting into DB
     # Add year, month, day to data table
@@ -658,20 +682,26 @@ PushToPSQL <- function(df, DB_selected) {
     
     # Get id from Year_dates_df where month_num = month, and day_num = day. Add as column to data_temp
     # JOIN the tables
-    data_temp <-left_join(data_temp, Year_dates_df[,c("id", "month", "day")], by = c("month_num" = "month", "day_num" = "day"))
+    data_temp <-
+      left_join(data_temp,
+                Year_dates_df[, c("id", "month", "day")],
+                by = c("month_num" = "month", "day_num" = "day"))
     data_temp$date <- as.character(data_temp$date)
     
     # Now, delete the month name column and rename 'id' to 'year_dates_id'
-    names(data_temp)[names(data_temp) == 'id'] <- 'year_dates_id'
-    # data_temp <-
-    #   dplyr::rename(data_temp, month_num = TEST)
+    # names(data_temp)[names(data_temp) == 'id'] <- 'year_dates_id'
+    data_temp <-
+      dplyr::rename(data_temp, year_dates_id = id)
     
     # Repeat this to get 'modeled_dates'
-    data_temp <-left_join(data_temp, Modeled_dates_df[,c("id", "date")], by = c("date" = "date"))
-    names(data_temp)[names(data_temp) == 'id'] <- 'modeled_dates_id'
+    data_temp <-
+      left_join(data_temp, Modeled_dates_df[, c("id", "date")], by = c("date" = "date"))
+    # names(data_temp)[names(data_temp) == 'id'] <- 'modeled_dates_id'
+    data_temp <-
+      dplyr::rename(data_temp, modeled_dates_id = id)
     
     # Remove 'date' column
-    data_temp <- subset( data_temp, select = -date )
+    data_temp <- subset(data_temp, select = -date)
     
     # Reorder columns
     data_temp <-
@@ -687,6 +717,10 @@ PushToPSQL <- function(df, DB_selected) {
     
     # Convert values to numeric
     options(digits = 9)
+    
+    data_temp$value <-
+      as.character(data_temp$value)
+    
     data_temp$value <-
       as.numeric(data_temp$value)
     
@@ -712,7 +746,28 @@ PushToPSQL <- function(df, DB_selected) {
     SQL_start <- Sys.time()
     
     to_insert <-
-      paste0("(", paste0("'", data_temp$data_bridge_id, "','", data_temp$modeled_dates_id, "','", data_temp$value, "','", data_temp$year_dates_id, "','", data_temp$year, "','", data_temp$month_num, "','", data_temp$day_num, "'", collapse= "),("), ")")
+      paste0(
+        "(",
+        paste0(
+          "'",
+          data_temp$data_bridge_id,
+          "','",
+          data_temp$modeled_dates_id,
+          "','",
+          data_temp$value,
+          "','",
+          data_temp$year_dates_id,
+          "','",
+          data_temp$year,
+          "','",
+          data_temp$month_num,
+          "','",
+          data_temp$day_num,
+          "'",
+          collapse = "),("
+        ),
+        ")"
+      )
     
     
     # INSERT INTO DB AND RETURN IDS
@@ -736,16 +791,9 @@ PushToPSQL <- function(df, DB_selected) {
     ))
     
     
-    # Calculate the STATS, push to the DB, get the 'id', 
+    # Calculate the STATS, push to the DB, get the 'id',
     # then merge in the ID column and push data_temp to the DB
-
     
-    
-    
-    
-    # STOPPED HERE **********
-    # STOPPED HERE **********
-    # STOPPED HERE **********
     
     
     
@@ -756,125 +804,174 @@ PushToPSQL <- function(df, DB_selected) {
     ## CREATE STATS_TABLE
     ## -----------------------
     
-    if (num_to_insert == 0) {
-      message("**No stats to process**")
-      
-    } else {
-      message("Processing Stats for STATS_TABLE: ")
-      start_time <- Sys.time()
-      
-      stats_data_temp <-
-        tidyr::spread(LOCAL_data_to_insert_NO_ID[, c("data_bridge_id", "year_dates_id", "year", "value")], year, value)
-      stats_data_temp <-
-        cbind(id = 1:nrow(stats_data_temp), stats_data_temp)
-      
-      stats <- data.frame(
-        minimum = numeric(),
-        tenth = numeric(),
-        fiftieth = numeric(),
-        average = numeric(),
-        ninetieth = numeric(),
-        maximum = numeric()
+    message("Processing Stats for STATS_TABLE: ")
+    start_time <- Sys.time()
+    
+    stats_data_temp <-
+      tidyr::spread(data_temp[, c("data_bridge_id", "year_dates_id", "year", "value")], year, value)
+    stats_data_temp <-
+      cbind(id = 1:nrow(stats_data_temp), stats_data_temp)
+    
+    stats <- data.frame(
+      minimum = numeric(),
+      tenth = numeric(),
+      fiftieth = numeric(),
+      average = numeric(),
+      ninetieth = numeric(),
+      maximum = numeric()
+    )
+    
+    pb <-
+      txtProgressBar(
+        min = 1,
+        max = nrow(stats_data_temp),
+        initial = 1,
+        char = "=",
+        width = NA,
+        "title",
+        "label",
+        style = 3,
+        file = ""
       )
+    
+    for (i in 1:nrow(stats_data_temp)) {
+      setTxtProgressBar(pb, i)
       
-      pb <-
-        txtProgressBar(
-          min = 1,
-          max = nrow(stats_data_temp),
-          initial = 1,
-          char = "=",
-          width = NA,
-          "title",
-          "label",
-          style = 3,
-          file = ""
-        )
-      
-      for (i in 1:nrow(stats_data_temp)) {
-        setTxtProgressBar(pb, i)
-        
-        stats[i, c("tenth", "fiftieth", "ninetieth")] <-
-          quantile(stats_data_temp[i, 4:ncol(stats_data_temp)], probs = c(0.1, 0.5, 0.9))
-        stats[i, "minimum"] <-
-          min(stats_data_temp[i, 4:ncol(stats_data_temp)])
-        stats[i, "average"] <-
-          mean(unlist(stats_data_temp[i, 4:ncol(stats_data_temp)]))
-        stats[i, "maximum"] <-
-          max(stats_data_temp[i, 4:ncol(stats_data_temp)])
-      }
-      
-      close(pb)
-      
-      end_time <- Sys.time()
-      elapsed_time <- difftime(end_time, start_time, units = "secs")
-      
-      message(c(
-        "It took ",
-        round(elapsed_time[[1]], 2),
-        " seconds to calculate stats for  ",
-        nrow(stats_data_temp),
-        " rows of data"
-      ))
-      
-      LOCAL_model_stats <- stats_data_temp[, 1:3]
-      LOCAL_model_stats <- cbind(LOCAL_model_stats, stats)
-      LOCAL_model_stats_all <- cbind(stats_data_temp, stats)
-      
-      num_df <- length(LOCAL_model_stats$id)
-      
-      # MUST remove the ID column before pushing to the DB
-      LOCAL_model_stats_NO_ID <-
-        dplyr::select(
-          LOCAL_model_stats,
-          data_bridge_id,
-          year_dates_id,
-          minimum,
-          tenth,
-          fiftieth,
-          average,
-          ninetieth,
-          maximum
-        )
-      
-      # STATS_inserted <- to_insert
-      STATS_inserted <- LOCAL_model_stats_NO_ID
-      
-      num_insert <- length(LOCAL_model_stats_NO_ID[[1]])
-      num_dups <- num_df - num_insert
-      
-      # 3 - dbWriteTable to append the new values
-      
-      message(c("Inserting into 'STATS' table..."))
-      
-      SQL_start <- Sys.time()
-      
-      RPostgreSQL::dbWriteTable(
-        connection,
-        "stats",
-        LOCAL_model_stats_NO_ID,
-        row.names = FALSE,
-        append = TRUE,
-        overwrite = FALSE
-      )
-      
-      message(c(
-        num_df,
-        " STATS in df, ",
-        num_dups,
-        " duplicates, ",
-        num_insert,
-        " inserted in DB"
-      ))
-      
-      end_time <- Sys.time()
-      elapsed_time <- difftime(end_time, SQL_start, units = "secs")
-      
-      message(c(
-        "SQL insert into 'STATS' complete. Elapsed time: ",
-        round(elapsed_time[[1]], 2),
-        " seconds. "
-      ))
+      stats[i, c("tenth", "fiftieth", "ninetieth")] <-
+        quantile(stats_data_temp[i, 4:ncol(stats_data_temp)], probs = c(0.1, 0.5, 0.9))
+      stats[i, "minimum"] <-
+        min(stats_data_temp[i, 4:ncol(stats_data_temp)])
+      stats[i, "average"] <-
+        mean(unlist(stats_data_temp[i, 4:ncol(stats_data_temp)]))
+      stats[i, "maximum"] <-
+        max(stats_data_temp[i, 4:ncol(stats_data_temp)])
     }
+    
+    close(pb)
+    
+    end_time <- Sys.time()
+    elapsed_time <- difftime(end_time, start_time, units = "secs")
+    
+    message(c(
+      "It took ",
+      round(elapsed_time[[1]], 2),
+      " seconds to calculate stats for  ",
+      nrow(stats_data_temp),
+      " rows of data"
+    ))
+    
+    
+  
+    # STOPPED HERE **********
+    # STOPPED HERE **********
+    # STOPPED HERE **********
+    
+    
+    
+    
+    
+    ## -----------------------
+    ## INSERT STATS INTO DB
+    ## -----------------------
+    
+    LOCAL_model_stats <- stats_data_temp[, 1:3]
+    LOCAL_model_stats <- cbind(LOCAL_model_stats, stats)
+    
+    # # ** OPTIONAL ** -- Write the table to a .csv file
+      # # Will create a table with all of the years in columns and stats in columns too
+      # 
+      # LOCAL_model_stats_all <- cbind(stats_data_temp, stats)
+      # stats_file_path <- "/Users/christianbeaudrie/Box Sync/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code"
+      # stats_file_name <- "data_and_stats_table.csv"
+        # Need to programatically change the stats_file_name for each loop so you won't write
+        # over the existing .csv file each time this is run.
+      # 
+      # path_and_filename<- paste0(stats_file_path, "/", stats_file_name)
+      # write.csv(LOCAL_model_stats_all,path_and_filename, row.names = FALSE)
+
+    num_df <- length(LOCAL_model_stats$id)
+    
+    # MUST remove the ID column before pushing to the DB
+    LOCAL_model_stats_NO_ID <-
+      dplyr::select(
+        LOCAL_model_stats,
+        data_bridge_id,
+        year_dates_id,
+        minimum,
+        tenth,
+        fiftieth,
+        average,
+        ninetieth,
+        maximum
+      )
+    
+    # STATS_inserted <- to_insert
+    STATS_inserted <- LOCAL_model_stats_NO_ID
+    
+    num_insert <- length(LOCAL_model_stats_NO_ID[[1]])
+    num_dups <- num_df - num_insert
+    
+    # 3 - dbWriteTable to append the new values
+    
+    message(c("Inserting into 'STATS' table..."))
+    
+    SQL_start <- Sys.time()
+    
+    to_insert <-
+      paste0(
+        "(",
+        paste0(
+          "'",
+          LOCAL_model_stats_NO_ID$data_bridge_id,
+          "','",
+          LOCAL_model_stats_NO_ID$year_dates_id,
+          "','",
+          LOCAL_model_stats_NO_ID$minimum,
+          "','",
+          LOCAL_model_stats_NO_ID$tenth,
+          "','",
+          LOCAL_model_stats_NO_ID$fiftieth,
+          "','",
+          LOCAL_model_stats_NO_ID$average,
+          "','",
+          LOCAL_model_stats_NO_ID$ninetieth,
+          "','",
+          LOCAL_model_stats_NO_ID$maximum,
+          "'",
+          collapse = "),("
+        ),
+        ")"
+      )
+    
+    
+    # INSERT INTO DB AND RETURN IDS
+    returned_stats_ids <-
+      dbGetQuery(
+        connection,
+        paste0(
+          "INSERT INTO stats (data_bridge_id, year_dates_id, minimum, tenth, fiftieth, average, ninetieth, maximum) VALUES ",
+          to_insert,
+          " RETURNING id;"
+        )
+      )
+    
+    # message(c(
+    #   num_df,
+    #   " STATS in df, ",
+    #   num_dups,
+    #   " duplicates, ",
+    #   num_insert,
+    #   " inserted in DB"
+    # ))
+    
+    end_time <- Sys.time()
+    elapsed_time <- difftime(end_time, SQL_start, units = "secs")
+    
+    message(c(
+      "SQL insert into 'STATS' complete. Elapsed time: ",
+      round(elapsed_time[[1]], 2),
+      " seconds. "
+    ))
     
     end_time <- Sys.time()
     elapsed_time <-

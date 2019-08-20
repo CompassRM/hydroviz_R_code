@@ -7,8 +7,7 @@ ProcessHydrovizData <- function () {
   # NOTE - must set the working directory to the directory where this R file is run from! E.g.:
   # setwd("~/Box/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code")
   setwd("~/Box Sync/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code")
-  
-  
+
   
   # # This will set the working path to the path of this file
   # this.dir <- dirname(parent.frame(2)$ofile)
@@ -84,7 +83,7 @@ ProcessHydrovizData <- function () {
   insert_into_DB <-
     dlg_message("Would you like to push this data to a DB?", "yesno")$res
   
-  choices <- list("Production DB", "Testing DB")
+  choices <- list("Production DB (AWS)", "Testing DB (AWS)", "Development DB (local)")
   
   DBList <-
     function() {
@@ -126,10 +125,7 @@ ProcessHydrovizData <- function () {
       }
     }
   }
-  
-  
-  
-  
+
   
   ## START PROCESSING DATA
   
