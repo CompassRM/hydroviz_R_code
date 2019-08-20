@@ -2,6 +2,7 @@
 # df <- df_ALL
 
 PushToPSQL <- function(df, DB_selected) {
+  
   message(
     "IN PushToPSQL. First row of df_final: ",
     df[1, ]$alternative,
@@ -54,15 +55,15 @@ PushToPSQL <- function(df, DB_selected) {
   if (DB_selected == "Production DB") {
     message("**** Inserting into Production DB ****")
     
-    connection <- dbConnect(
-      driver,
-      dbname = Sys.getenv("dbnameprod"),
-      host = Sys.getenv("prodhost"),
-      port = Sys.getenv("port"),
-      user = Sys.getenv("user"),
-      password = Sys.getenv("password")
-    )
-    
+    # connection <- dbConnect(
+    #   driver,
+    #   dbname = Sys.getenv("dbnameprod"),
+    #   host = Sys.getenv("prodhost"),
+    #   port = Sys.getenv("port"),
+    #   user = Sys.getenv("user"),
+    #   password = Sys.getenv("password")
+    # )
+    # 
     
   } else if (DB_selected == "Testing DB") {
     message("**** Inserting into Testing DB ****")
@@ -377,6 +378,7 @@ PushToPSQL <- function(df, DB_selected) {
     LOCAL_data_bridge[1, "data_bridge_id"] <- data_bridge_id
     
   } else {
+    
     # CONTINUE PROCESSING DATA TO INSERT INTO THE DB
     
     
@@ -612,10 +614,6 @@ PushToPSQL <- function(df, DB_selected) {
     }
     
     
-    
-    
- 
-    
     ## -----------------------
     ## Build DATA table
     ## -----------------------
@@ -641,20 +639,13 @@ PushToPSQL <- function(df, DB_selected) {
     #   stats_id = integer(),
     #   stringsAsFactors = FALSE
     # )
+  
     
     data_temp <- data.frame(
       data_bridge_id = LOCAL_data_bridge[1, "data_bridge_id"],
       date = df[, 'date'],
       value = df[, 'value']
       )
-    
-    # Use dplyr to merge based on 'date' - will add modeled_dates_id, year, month_num, day_num
-    # Not sure about how to add year_dates_id yet - just by combo of month and day?
-    
-    # Once data_temp is ready, then calc stats, insert stats and get stats_id, add to data_temp
-    # Then insert data_temp into data table
-    
-    
     
     # Process data to add missing columns before inserting into DB
     # Add year, month, day to data table
@@ -666,104 +657,25 @@ PushToPSQL <- function(df, DB_selected) {
       lubridate::day(data_temp$date)
     
     # Get id from Year_dates_df where month_num = month, and day_num = day. Add as column to data_temp
+    # JOIN the tables
+    data_temp <-left_join(data_temp, Year_dates_df[,c("id", "month", "day")], by = c("month_num" = "month", "day_num" = "day"))
+    data_temp$date <- as.character(data_temp$date)
     
-    # Do the same thing to add in modeled dates id from Modeled_dates_df
+    # Now, delete the month name column and rename 'id' to 'year_dates_id'
+    names(data_temp)[names(data_temp) == 'id'] <- 'year_dates_id'
+    # data_temp <-
+    #   dplyr::rename(data_temp, month_num = TEST)
     
-    # Create stats_table, insert it, get ids, then add stats_id to data_temp to finalize it
-    # Insert data_temp into the DB
+    # Repeat this to get 'modeled_dates'
+    data_temp <-left_join(data_temp, Modeled_dates_df[,c("id", "date")], by = c("date" = "date"))
+    names(data_temp)[names(data_temp) == 'id'] <- 'modeled_dates_id'
     
-    
-    
-    
-    # STOPPED HERE **********
-    # STOPPED HERE **********
-    # STOPPED HERE **********
-    
-    # GO THROUGH THE REMAINING CODE AND MAKE IT WORK
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    # Get codes for the data to be inserted
-    codes_to_insert <- data_to_insert$code
-    
-    # Make a LOCAL version of the data with a 'code' field
-    bridge_table_temp$code <-
-      paste(
-        bridge_table_temp$alternative_id,
-        bridge_table_temp$type_id,
-        bridge_table_temp$source_id,
-        bridge_table_temp$river_id,
-        bridge_table_temp$location_id
-      )
-    
-    LOCAL_data <-
-      dplyr::select(bridge_table_temp, id, date, value, code)
-    
-    # Count how many rows in the local dataset BEFORE removing rows that exist in the DB
-    num_df <- length(LOCAL_data$id)
-    
-    # query the table to see which values exist in the DB compared to my dataframe
-    # This gives us the 'data_bridge_ids' that correspond to the 'codes'
-    DB_data_bridge <- dbReadTable(connection, "data_bridge")
-    
-    # MUST do the step below to get the row index for matches, THEN get the corresponding ID for those rows
-    data_bridge_index <-
-      match(
-        LOCAL_data$code,
-        DB_data_bridge$code,
-        nomatch = NA_integer_,
-        incomparables = NULL
-      )
-    
-    # Find the data_bridge_id where LOCAL_data already exists in the DB
-    LOCAL_data$data_bridge_id <-
-      DB_data_bridge$id[data_bridge_index]
-    
-    LOCAL_data_to_insert <-
-      dplyr::filter(LOCAL_data, LOCAL_data$code %in% codes_to_insert)
-    
-    DATA_inserted <- LOCAL_data_to_insert
-    
-    # Process data to add missing columns before inserting into DB
-    # Add year, month, day to data table
-    LOCAL_data_to_insert$year <-
-      lubridate::year(LOCAL_data_to_insert$date)
-    LOCAL_data_to_insert$month_num <-
-      lubridate::month(LOCAL_data_to_insert$date)
-    LOCAL_data_to_insert$day_num <-
-      lubridate::day(LOCAL_data_to_insert$date)
-    
-    
-    # ****CHECK THIS - LOOKS LIKE IT RETURNS 365 VALUES?!
-    LOCAL_data_to_insert$year_dates_id <-
-      DB_year_dates[DB_year_dates$month == LOCAL_data_to_insert$month &&
-                      DB_year_dates$day == LOCAL_data_to_insert$day, "id"]
-    
-    
-    modeled_dates_index <-
-      match(
-        as.character(LOCAL_data_to_insert$date),
-        DB_modeled_dates$date,
-        nomatch = NA_integer_,
-        incomparables = NULL
-      )
-    
-    LOCAL_data_to_insert$date <-
-      DB_modeled_dates$id[modeled_dates_index]
-    LOCAL_data_to_insert <-
-      dplyr::rename(LOCAL_data_to_insert, modeled_dates_id = date)
+    # Remove 'date' column
+    data_temp <- subset( data_temp, select = -date )
     
     # Reorder columns
-    LOCAL_data_to_insert <-
-      LOCAL_data_to_insert[c(
-        "id",
+    data_temp <-
+      data_temp[c(
         "data_bridge_id",
         "modeled_dates_id",
         "value",
@@ -775,8 +687,8 @@ PushToPSQL <- function(df, DB_selected) {
     
     # Convert values to numeric
     options(digits = 9)
-    LOCAL_data_to_insert$value <-
-      as.numeric(LOCAL_data_to_insert$value)
+    data_temp$value <-
+      as.numeric(data_temp$value)
     
     end_time <- Sys.time()
     elapsed_time <-
@@ -786,49 +698,33 @@ PushToPSQL <- function(df, DB_selected) {
       "It took ",
       round(elapsed_time[[1]], 2),
       " seconds to process the data table for ",
-      nrow(LOCAL_data_to_insert),
+      nrow(data_temp),
       " rows of data."
     ))
     
-    # Drop the ID column
-    LOCAL_data_to_insert_NO_ID <-
-      dplyr::select(
-        LOCAL_data_to_insert,
-        data_bridge_id,
-        modeled_dates_id,
-        value,
-        year_dates_id,
-        year,
-        month_num,
-        day_num
-      )
     
     # INSERT into data table
     message(c("Inserting into 'DATA' table..."))
     
-    num_to_insert <- length(LOCAL_data_to_insert_NO_ID[[1]])
-    num_dups <- num_df - num_to_insert
+    # num_to_insert <- length(data_temp[[1]])
+    # num_dups <- num_df - num_to_insert
     
     SQL_start <- Sys.time()
     
-    # Write to DB
-    RPostgreSQL::dbWriteTable(
-      connection,
-      "data",
-      LOCAL_data_to_insert_NO_ID,
-      row.names = FALSE,
-      append = TRUE,
-      overwrite = FALSE
-    )
+    to_insert <-
+      paste0("(", paste0("'", data_temp$data_bridge_id, "','", data_temp$modeled_dates_id, "','", data_temp$value, "','", data_temp$year_dates_id, "','", data_temp$year, "','", data_temp$month_num, "','", data_temp$day_num, "'", collapse= "),("), ")")
     
-    message(c(
-      num_df,
-      " DATA in df, ",
-      num_dups,
-      " duplicates, ",
-      num_insert,
-      " inserted in DB"
-    ))
+    
+    # INSERT INTO DB AND RETURN IDS
+    returned_data_ids <-
+      dbGetQuery(
+        connection,
+        paste0(
+          "INSERT INTO data (data_bridge_id, modeled_dates_id, value, year_dates_id, year, month_num, day_num) VALUES ",
+          to_insert,
+          " RETURNING id;"
+        )
+      )
     
     end_time <- Sys.time()
     elapsed_time <- difftime(end_time, SQL_start, units = "secs")
@@ -840,9 +736,16 @@ PushToPSQL <- function(df, DB_selected) {
     ))
     
     
+    # Calculate the STATS, push to the DB, get the 'id', 
+    # then merge in the ID column and push data_temp to the DB
+
     
     
     
+    
+    # STOPPED HERE **********
+    # STOPPED HERE **********
+    # STOPPED HERE **********
     
     
     
