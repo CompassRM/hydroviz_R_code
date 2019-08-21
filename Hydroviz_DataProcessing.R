@@ -409,6 +409,8 @@ ProcessHydrovizData <- function () {
   message("----------------------------------------------")
   message(" ")
   
+  # FOR DEBUGGING WHEN USING PushToPSQL - comment it out if not debugging
+  df <- df_final
   
   return()
   
