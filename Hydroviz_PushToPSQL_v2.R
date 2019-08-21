@@ -394,6 +394,28 @@ PushToPSQL <- function(df, DB_selected) {
     )
   
   message("LOCAL_data_bridge: ", LOCAL_data_bridge[1, 6])
+
+  
+  # -----------------
+  # Each element of the data bridge may be in the DB, but not in the combination presented
+  # by the data set - check if the data_bridge_id exists in the DB, then decide what to do
+  # -----------------
+  
+  
+  data_bridge_id <-
+    dbGetQuery(
+      connection,
+      paste0(
+        "SELECT id FROM data_bridge WHERE code = '",
+        LOCAL_data_bridge[1, "code"],
+        "'"
+      )
+    )
+  
+  if (nrow(data_bridge_id) == 0) {
+    # If the location is NOT in the DB, then insert it and get the new id
+    LOCAL_data_bridge[1, 'dataset_is_new'] <- TRUE
+  }
   
   ## -----------------------
   ## IF DATASET IS NEW - PROCESS AND INSERT INTO DB
