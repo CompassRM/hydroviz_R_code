@@ -749,6 +749,11 @@ PushToPSQL <- function(df, DB_selected) {
     data_temp$value <-
       as.numeric(data_temp$value)
     
+    # The conversion to as.numeric will coerce "NULL" into "NA", but we need these to be "NaN"
+    # to insert into Postgres for numeric types
+    data_temp$value[is.na(data_temp$value)] <- NaN
+
+    
     end_time <- Sys.time()
     elapsed_time <-
       difftime(end_time, data_processing_start, units = "secs")
@@ -816,26 +821,24 @@ PushToPSQL <- function(df, DB_selected) {
     ))
     
     
+    
+
     # Calculate the STATS, push to the DB, get the 'id',
     # then merge in the ID column and push data_temp to the DB
-    
-    
-    
-    
-    
-    
-    
+
     ## -----------------------
     ## CREATE STATS_TABLE
     ## -----------------------
-    
+
     message("Processing Stats for STATS_TABLE: ")
     start_time <- Sys.time()
-    
+
     stats_data_temp <-
       tidyr::spread(data_temp[, c("data_bridge_id", "year_dates_id", "year", "value")], year, value)
     stats_data_temp <-
       cbind(id = 1:nrow(stats_data_temp), stats_data_temp)
+
+    # stats_data_temp <- data.frame(stats_data_temp)
     
     stats <- data.frame(
       minimum = numeric(),
@@ -845,7 +848,7 @@ PushToPSQL <- function(df, DB_selected) {
       ninetieth = numeric(),
       maximum = numeric()
     )
-    
+
     pb <-
       txtProgressBar(
         min = 1,
@@ -858,25 +861,37 @@ PushToPSQL <- function(df, DB_selected) {
         style = 3,
         file = ""
       )
+
+    # Convert all NaNs to NAs for stats calculations
+    for (r in 4:length(colnames(stats_data_temp))) {
+      stats_data_temp[is.nan(stats_data_temp[,r]), r] <- NA
+    }
+
     
     for (i in 1:nrow(stats_data_temp)) {
       setTxtProgressBar(pb, i)
-      
+
       stats[i, c("tenth", "fiftieth", "ninetieth")] <-
-        quantile(stats_data_temp[i, 4:ncol(stats_data_temp)], probs = c(0.1, 0.5, 0.9))
+        quantile(stats_data_temp[i, 4:ncol(stats_data_temp)], probs = c(0.1, 0.5, 0.9), na.rm=TRUE)
       stats[i, "minimum"] <-
-        min(stats_data_temp[i, 4:ncol(stats_data_temp)])
+        min(stats_data_temp[i, 4:ncol(stats_data_temp)], na.rm=TRUE)
       stats[i, "average"] <-
-        mean(unlist(stats_data_temp[i, 4:ncol(stats_data_temp)]))
+        mean(unlist(stats_data_temp[i, 4:ncol(stats_data_temp)]),na.rm=TRUE)
       stats[i, "maximum"] <-
-        max(stats_data_temp[i, 4:ncol(stats_data_temp)])
+        max(stats_data_temp[i, 4:ncol(stats_data_temp)], na.rm=TRUE)
     }
+
+    # Convert NA and Inf / -Inf to NaN to insert into DB
+    stats[is.na(stats)] <- NaN
+    stats[stats == Inf] <- NaN
+    stats[stats == -Inf] <- NaN
+    
     
     close(pb)
-    
+
     end_time <- Sys.time()
     elapsed_time <- difftime(end_time, start_time, units = "secs")
-    
+
     message(c(
       "It took ",
       round(elapsed_time[[1]], 2),
@@ -884,38 +899,38 @@ PushToPSQL <- function(df, DB_selected) {
       nrow(stats_data_temp),
       " rows of data"
     ))
-    
-    
-  
+
+
+
     # STOPPED HERE **********
     # STOPPED HERE **********
     # STOPPED HERE **********
-    
-    
-    
-    
-    
+
+
+
+
+
     ## -----------------------
     ## INSERT STATS INTO DB
     ## -----------------------
-    
+
     LOCAL_model_stats <- stats_data_temp[, 1:3]
     LOCAL_model_stats <- cbind(LOCAL_model_stats, stats)
-    
+
     # # ** OPTIONAL ** -- Write the table to a .csv file
       # # Will create a table with all of the years in columns and stats in columns too
-      # 
+      #
       # LOCAL_model_stats_all <- cbind(stats_data_temp, stats)
       # stats_file_path <- "/Users/christianbeaudrie/Box Sync/P722 - MRRIC AM Support/Working Docs/P722 - HydroViz/hydroviz_R_code"
       # stats_file_name <- "data_and_stats_table.csv"
         # Need to programatically change the stats_file_name for each loop so you won't write
         # over the existing .csv file each time this is run.
-      # 
+      #
       # path_and_filename<- paste0(stats_file_path, "/", stats_file_name)
       # write.csv(LOCAL_model_stats_all,path_and_filename, row.names = FALSE)
 
     num_df <- length(LOCAL_model_stats$id)
-    
+
     # MUST remove the ID column before pushing to the DB
     LOCAL_model_stats_NO_ID <-
       dplyr::select(
@@ -929,19 +944,19 @@ PushToPSQL <- function(df, DB_selected) {
         ninetieth,
         maximum
       )
-    
+
     # STATS_inserted <- to_insert
     STATS_inserted <- LOCAL_model_stats_NO_ID
-    
+
     num_insert <- length(LOCAL_model_stats_NO_ID[[1]])
     num_dups <- num_df - num_insert
-    
+
     # 3 - dbWriteTable to append the new values
-    
+
     message(c("Inserting into 'STATS' table..."))
-    
+
     SQL_start <- Sys.time()
-    
+
     to_insert <-
       paste0(
         "(",
@@ -967,8 +982,8 @@ PushToPSQL <- function(df, DB_selected) {
         ),
         ")"
       )
-    
-    
+
+
     # INSERT INTO DB AND RETURN IDS
     returned_stats_ids <-
       dbGetQuery(
@@ -979,7 +994,7 @@ PushToPSQL <- function(df, DB_selected) {
           " RETURNING id;"
         )
       )
-    
+
     # message(c(
     #   num_df,
     #   " STATS in df, ",
@@ -988,20 +1003,20 @@ PushToPSQL <- function(df, DB_selected) {
     #   num_insert,
     #   " inserted in DB"
     # ))
-    
+
     end_time <- Sys.time()
     elapsed_time <- difftime(end_time, SQL_start, units = "secs")
-    
+
     message(c(
       "SQL insert into 'STATS' complete. Elapsed time: ",
       round(elapsed_time[[1]], 2),
       " seconds. "
     ))
-    
+
     end_time <- Sys.time()
     elapsed_time <-
       difftime(end_time, SQL_module_start, units = "secs")
-    
+
     message(" ")
     message("-----------------------------")
     message(" *** FINISHED SQL Insert *** ")
@@ -1010,9 +1025,9 @@ PushToPSQL <- function(df, DB_selected) {
               " seconds. "))
     message("-----------------------------")
     message(" ")
-    
-    
-    ## END OF LOOP TRIGGERED IF data_bridge ISN'T IN THE DB
+
+
+    # END OF LOOP TRIGGERED IF data_bridge ISN'T IN THE DB
   }
   
   dbDisconnect(connection)
