@@ -358,6 +358,13 @@ ProcessHydrovizData <- function () {
         # # Bind it to df_ALL
         # df_ALL <- rbind(df_ALL, df_final)
         
+        
+        # Convert NaNs in Value column to NA
+        # df_final$value[df_final$value == "NaN"] <- NA
+        df_final$value[df_final$value == "NaN"] <- "NULL"
+        # df_final$value[is.na(df_final$value)] <- "NULL"
+        
+        
         ## INSERT DATA IN DB
         if (insert_into_DB == "yes") {
           PushToPSQL(df_final, DB_selected)
