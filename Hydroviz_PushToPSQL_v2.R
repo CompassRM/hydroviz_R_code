@@ -995,14 +995,14 @@ PushToPSQL <- function(df, DB_selected) {
         )
       )
 
-    # message(c(
-    #   num_df,
-    #   " STATS in df, ",
-    #   num_dups,
-    #   " duplicates, ",
-    #   num_insert,
-    #   " inserted in DB"
-    # ))
+    message(c(
+      num_df,
+      " STATS in df, ",
+      num_dups,
+      " duplicates, ",
+      num_insert,
+      " inserted in DB"
+    ))
 
     end_time <- Sys.time()
     elapsed_time <- difftime(end_time, SQL_start, units = "secs")
