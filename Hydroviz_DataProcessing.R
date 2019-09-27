@@ -329,12 +329,18 @@ ProcessHydrovizData <- function () {
         df_reordered[, "date"] <-
           as.Date(df_reordered[, "date"] , origin = "1899-12-30")
         
-        ## REMOVE LEAP DAYS AND 1930 (INCOMPLETE YEAR)
-        df_no1930 <-
-          df_reordered[lubridate::year(df_reordered$date) != 1930,]
+        ## REMOVE DATA FROM 1930
+        # df_no1930 <-
+        #   df_reordered[lubridate::year(df_reordered$date) != 1930,]
+        
+        ## REMOVE LEAP DAYS
+        # df_final <-
+        #   df_no1930[!(lubridate::month(df_no1930$date) == 2 &
+        #                    lubridate::day(df_no1930$date) == 29),]
+        
         df_final <-
-          df_no1930[!(lubridate::month(df_no1930$date) == 2 &
-                        lubridate::day(df_no1930$date) == 29),]
+          df_reordered[!(lubridate::month(df_reordered$date) == 2 &
+                        lubridate::day(df_reordered$date) == 29),]
         
         df_final$location <- as.character(df_final$location)
         
