@@ -193,6 +193,7 @@ PushToPSQL <- function(df, DB_selected) {
   } else {
     # Add the id from the SELECT query to LOCAL_data_bridge
     LOCAL_data_bridge[1, "alt_id"] <- DB_alternative$id
+    message("ALTERNATIVE already in DB")
   }
   
   
@@ -235,11 +236,11 @@ PushToPSQL <- function(df, DB_selected) {
         # )
         paste0(
           "INSERT INTO types (type, units, measure) VALUES ('",
-          LOCAL_data_summary[1, "type"],
+          toupper(LOCAL_data_summary[1, "type"]),
           "', '",
-          LOCAL_units,
+          toupper(LOCAL_units),
           "','",
-          LOCAL_measure,
+          toupper(LOCAL_measure),
           "') RETURNING *;"
         )
       )
@@ -253,6 +254,7 @@ PushToPSQL <- function(df, DB_selected) {
   } else {
     # Add the id from the SELECT query to LOCAL_data_bridge
     LOCAL_data_bridge[1, "type_id"] <- DB_type$id
+    message("TYPE already in DB")
   }
   
   
@@ -295,6 +297,7 @@ PushToPSQL <- function(df, DB_selected) {
   } else {
     # Add the id from the SELECT query to LOCAL_data_bridge
     LOCAL_data_bridge[1, "source_id"] <- DB_source$id
+    message("SOURCE already in DB")
   }
   
   
@@ -336,6 +339,8 @@ PushToPSQL <- function(df, DB_selected) {
   } else {
     # Add the id from the SELECT query to LOCAL_data_bridge
     LOCAL_data_bridge[1, "river_id"] <- DB_river$id
+    message("RIVER already in DB")
+    
   }
   
   
@@ -377,6 +382,8 @@ PushToPSQL <- function(df, DB_selected) {
   } else {
     # Add the id from the SELECT query to LOCAL_data_bridge
     LOCAL_data_bridge[1, "location_id"] <- DB_location$id
+    message("LOCATION already in DB")
+    
   }
   
   
